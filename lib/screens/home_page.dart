@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:onesignal_flutter/onesignal_flutter.dart'; // ✅ NEW: OneSignal Import
 import 'login_page.dart';
 import 'household/post_listing_page.dart';
 import 'household/my_listings_page.dart';
@@ -61,6 +62,16 @@ class _HomePageState extends State<HomePage> {
           userProfilePic = doc.data()?['profilePic'];
           isLoading = false;
         });
+
+        // ✅ NEW: Save OneSignal Player ID to Firestore
+        String? playerId = await OneSignal.User.pushSubscription.id;
+        if (playerId != null) {
+          await FirebaseFirestore.instance
+              .collection('users')
+              .doc(user.uid)
+              .update({'onesignalId': playerId});
+          debugPrint('✅ OneSignal ID saved: $playerId');
+        }
 
         if (userRole == 'collector') {
           _fetchActiveListingsCount();
@@ -407,7 +418,6 @@ class _HomePageState extends State<HomePage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Profile Picture and Greeting Row
         Row(
           children: [
             CircleAvatar(

@@ -30,7 +30,10 @@ class _LoginPageState extends State<LoginPage> {
       if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Welcome to KalaKalApp 🌿"), backgroundColor: Colors.green),
+        const SnackBar(
+          content: Text("Welcome to KalaKalApp 🌿"),
+          backgroundColor: Colors.green,
+        ),
       );
 
       Navigator.of(context).pushAndRemoveUntil(
@@ -39,18 +42,120 @@ class _LoginPageState extends State<LoginPage> {
       );
     } on FirebaseAuthException catch (e) {
       String message = "Login failed. Please try again.";
-      if (e.code == 'user-not-found') message = 'No account found with this email.';
-      else if (e.code == 'wrong-password') message = 'Incorrect password.';
-      else if (e.code == 'invalid-email') message = 'Invalid email format.';
-      else if (e.code == 'too-many-requests') message = 'Too many attempts. Try again later.';
+      if (e.code == 'user-not-found')
+        message = 'No account found with this email.';
+      else if (e.code == 'wrong-password')
+        message = 'Incorrect password.';
+      else if (e.code == 'invalid-email')
+        message = 'Invalid email format.';
+      else if (e.code == 'too-many-requests')
+        message = 'Too many attempts. Try again later.';
 
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message), backgroundColor: Colors.red));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(message), backgroundColor: Colors.red),
+      );
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: ${e.toString()}'), backgroundColor: Colors.red));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error: ${e.toString()}'),
+          backgroundColor: Colors.red,
+        ),
+      );
     } finally {
       if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  // ✅ NEW: Forgot Password Logic
+  Future<void> _forgotPassword() async {
+    final forgotEmailController = TextEditingController();
+
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Reset Password'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              'Enter your email address to receive a secure password reset link.',
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: forgotEmailController,
+              keyboardType: TextInputType.emailAddress,
+              decoration: const InputDecoration(
+                labelText: 'Email',
+                border: OutlineInputBorder(),
+                prefixIcon: Icon(Icons.email),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
+            child: const Text(
+              'Send Link',
+              style: TextStyle(color: Colors.white),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (result == true) {
+      final email = forgotEmailController.text.trim();
+      if (email.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Please enter an email address.'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+        return;
+      }
+
+      try {
+        // ✅ Firebase handles the secure email sending automatically
+        await FirebaseAuth.instance.sendPasswordResetEmail(email: email);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Password reset link sent! Check your email. 📧'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+      } on FirebaseAuthException catch (e) {
+        String message = 'Failed to send reset link.';
+        if (e.code == 'user-not-found') {
+          message = 'No account found with this email.';
+        } else if (e.code == 'invalid-email') {
+          message = 'Invalid email format.';
+        }
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(message), backgroundColor: Colors.red),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Error: ${e.toString()}'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
     }
   }
 
@@ -77,30 +182,56 @@ class _LoginPageState extends State<LoginPage> {
                   Image.asset(
                     'assets/images/app_icon.png',
                     height: 120,
-                    //  FIXED: Named parameters to avoid "multiple underscores" lint warning
-                    errorBuilder: (context, error, stackTrace) => const Icon(Icons.recycling, size: 120, color: Colors.green),
+                    errorBuilder: (context, error, stackTrace) => const Icon(
+                      Icons.recycling,
+                      size: 120,
+                      color: Colors.green,
+                    ),
                   ),
                   const SizedBox(height: 9),
-                  const Text("KalaKalApp", style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Colors.green)),
+                  const Text(
+                    "KalaKalApp",
+                    style: TextStyle(
+                      fontSize: 28,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.green,
+                    ),
+                  ),
                   const SizedBox(height: 4),
-                  const Text("Scrap Collection Made Smart ♻️", style: TextStyle(color: Colors.grey)),
+                  const Text(
+                    "Scrap Collection Made Smart ♻️",
+                    style: TextStyle(color: Colors.grey),
+                  ),
                   const SizedBox(height: 29),
                   Container(
                     padding: const EdgeInsets.all(20),
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(20),
-                      boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 10, spreadRadius: 2)],
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black12,
+                          blurRadius: 10,
+                          spreadRadius: 2,
+                        ),
+                      ],
                     ),
                     child: Column(
                       children: [
                         TextFormField(
                           controller: emailController,
                           keyboardType: TextInputType.emailAddress,
-                          decoration: const InputDecoration(labelText: "Email", prefixIcon: Icon(Icons.email)),
+                          decoration: const InputDecoration(
+                            labelText: "Email",
+                            prefixIcon: Icon(Icons.email),
+                          ),
                           validator: (value) {
-                            if (value == null || value.isEmpty) return 'Email is required';
-                            if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value)) return 'Enter a valid email';
+                            if (value == null || value.isEmpty)
+                              return 'Email is required';
+                            if (!RegExp(
+                              r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
+                            ).hasMatch(value))
+                              return 'Enter a valid email';
                             return null;
                           },
                         ),
@@ -108,18 +239,48 @@ class _LoginPageState extends State<LoginPage> {
                         TextFormField(
                           controller: passwordController,
                           obscureText: true,
-                          decoration: const InputDecoration(labelText: "Password", prefixIcon: Icon(Icons.lock)),
+                          decoration: const InputDecoration(
+                            labelText: "Password",
+                            prefixIcon: Icon(Icons.lock),
+                          ),
                           validator: (value) {
-                            if (value == null || value.isEmpty) return 'Password is required';
-                            if (value.length < 6) return 'Password must be at least 6 characters';
+                            if (value == null || value.isEmpty)
+                              return 'Password is required';
+                            if (value.length < 6)
+                              return 'Password must be at least 6 characters';
                             return null;
                           },
                         ),
-                        const SizedBox(height: 20),
-                        PrimaryButton(text: "LOGIN", onPressed: login, isLoading: _isLoading),
+
+                        // ✅ NEW: Forgot Password Button
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: TextButton(
+                            onPressed: _forgotPassword,
+                            child: const Text(
+                              "Forgot Password?",
+                              style: TextStyle(
+                                color: Colors.green,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+
+                        PrimaryButton(
+                          text: "LOGIN",
+                          onPressed: login,
+                          isLoading: _isLoading,
+                        ),
                         const SizedBox(height: 12),
                         TextButton(
-                          onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SignupPage())),
+                          onPressed: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const SignupPage(),
+                            ),
+                          ),
                           child: const Text("Create new account"),
                         ),
                       ],

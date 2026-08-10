@@ -47,9 +47,12 @@ dependencies:
   # Network & Location
   http: ^1.6.0
   geolocator: ^14.0.3
-  
-  # ✅ Maps & Navigation
+  flutter_map: ^6.1.0 
+  latlong2: ^0.9.0     
+  onesignal_flutter: ^5.2.5
   map_launcher: ^3.3.1
+  flutter_local_notifications: ^18.0.1 
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
