@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "282871675419",
+    "project_id": "kalapp-a136b",
+    "storage_bucket": "kalapp-a136b.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:282871675419:android:a8480f17041d9dd7d216be",
+        "android_client_info": {
+          "package_name": "com.example.kalapp"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA4Hy6lJoZW5q61i8bAouAb_UjlwHzo9ZM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
