@@ -1,15 +1,28 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'package:onesignal_flutter/onesignal_flutter.dart'; // ✅ NEW
+import 'package:onesignal_flutter/onesignal_flutter.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart'; // ✅ NEW
 import 'screens/login_page.dart';
 
-void main() async {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  
+  // ✅ 1. Load the .env file BEFORE initializing Firebase or OneSignal
+  await dotenv.load(fileName: ".env"); 
+
   await Firebase.initializeApp();
 
-  // ✅ Initialize OneSignal (Replace with your actual App ID from Phase 1)
+  // ✅ 2. Read the OneSignal App ID securely from .env
+  final String oneSignalAppId = dotenv.env['ONESIGNAL_APP_ID'] ?? '';
+  
+  // Safety check: App will throw a clear error if the key is missing
+  if (oneSignalAppId.isEmpty) {
+    throw Exception("❌ ONESIGNAL_APP_ID is missing from your .env file!");
+  }
+
+  // ✅ 3. Initialize OneSignal using the secure variable
   OneSignal.Debug.setLogLevel(OSLogLevel.verbose);
-  OneSignal.initialize("PASTE_YOUR_ONESIGNAL_APP_ID_HERE"); 
+  OneSignal.initialize(oneSignalAppId); 
   OneSignal.Notifications.requestPermission(true);
 
   runApp(const MyApp());

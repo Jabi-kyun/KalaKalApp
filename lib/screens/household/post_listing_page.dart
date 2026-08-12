@@ -5,12 +5,14 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:geolocator/geolocator.dart'; // ✅ Restored for GPS capture
+import 'package:geolocator/geolocator.dart';
+import 'package:http/http.dart' as http;
 import '../home_page.dart';
 import '../widgets/kala_kal_app_bar.dart';
 import '../widgets/primary_button.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
-// ✅ Comprehensive Legazpi City Barangays for 3km Notification Radius
+// Comprehensive Legazpi City Barangays for 3km Notification Radius
 final List<Map<String, dynamic>> legazpiBarangays = [
   {'name': 'Albay District', 'lat': 13.1485, 'lng': 123.7360},
   {'name': 'EM\'s / Rizal Street', 'lat': 13.1450, 'lng': 123.7320},
@@ -51,11 +53,17 @@ class _PostListingPageState extends State<PostListingPage> {
 
   bool _isLoading = false;
   bool _isLocationLoading = false;
-  Position? _currentPosition; // ✅ Back to actual GPS Position
+  Position? _currentPosition;
   List<String> _imagesBase64 = [];
 
   final List<String> _categories = [
-    'Plastic', 'Metal', 'Paper', 'Glass', 'E-Waste', 'Furniture', 'Others',
+    'Plastic',
+    'Metal',
+    'Paper',
+    'Glass',
+    'E-Waste',
+    'Furniture',
+    'Others',
   ];
   final ImagePicker _picker = ImagePicker();
 
@@ -67,7 +75,8 @@ class _PostListingPageState extends State<PostListingPage> {
     if (isEditMode) {
       _selectedCategory = widget.existingListing!['category'] ?? 'Plastic';
       _quantityController.text = widget.existingListing!['quantity'] ?? '';
-      _descriptionController.text = widget.existingListing!['description'] ?? '';
+      _descriptionController.text =
+          widget.existingListing!['description'] ?? '';
 
       if (widget.existingListing!['images'] != null) {
         _imagesBase64 = List<String>.from(widget.existingListing!['images']);
@@ -75,7 +84,6 @@ class _PostListingPageState extends State<PostListingPage> {
         _imagesBase64 = [widget.existingListing!['image']];
       }
 
-      // ✅ Load existing GPS coordinates if in edit mode
       if (widget.existingListing!['location'] != null &&
           widget.existingListing!['location']['latitude'] != null) {
         final loc = widget.existingListing!['location'];
@@ -83,8 +91,13 @@ class _PostListingPageState extends State<PostListingPage> {
           latitude: loc['latitude'],
           longitude: loc['longitude'],
           timestamp: DateTime.now(),
-          accuracy: 0, altitude: 0, altitudeAccuracy: 0,
-          heading: 0, headingAccuracy: 0, speed: 0, speedAccuracy: 0,
+          accuracy: 0,
+          altitude: 0,
+          altitudeAccuracy: 0,
+          heading: 0,
+          headingAccuracy: 0,
+          speed: 0,
+          speedAccuracy: 0,
         );
       }
     }
@@ -93,36 +106,54 @@ class _PostListingPageState extends State<PostListingPage> {
   Future<void> _pickImages() async {
     if (_imagesBase64.length >= 3) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Maximum 3 images allowed'), backgroundColor: Colors.orange),
+        const SnackBar(
+          content: Text('Maximum 3 images allowed'),
+          backgroundColor: Colors.orange,
+        ),
       );
       return;
     }
 
     try {
-      final List<XFile>? images = await _picker.pickMultiImage(imageQuality: 15, maxWidth: 500);
-      if (images != null) {
-        for (var image in images) {
-          if (_imagesBase64.length >= 3) break;
-          final bytes = await File(image.path).readAsBytes();
+      // ✅ Fixed: Removed unnecessary null check
+      final List<XFile> images = await _picker.pickMultiImage(
+        imageQuality: 15,
+        maxWidth: 500,
+      );
 
-          int currentSize = _imagesBase64.fold<int>(0, (sum, img) => sum + base64Decode(img).length);
-          if (currentSize + bytes.length > 800 * 1024) {
-            if (mounted) ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Images too large. Please use fewer photos.'), backgroundColor: Colors.red),
+      for (var image in images) {
+        if (_imagesBase64.length >= 3) break;
+        final bytes = await File(image.path).readAsBytes();
+
+        int currentSize = _imagesBase64.fold<int>(
+          0,
+          (sum, img) => sum + base64Decode(img).length,
+        );
+        if (currentSize + bytes.length > 800 * 1024) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Images too large. Please use fewer photos.'),
+                backgroundColor: Colors.red,
+              ),
             );
-            break;
           }
-          setState(() => _imagesBase64.add(base64Encode(bytes)));
+          break;
         }
+        setState(() => _imagesBase64.add(base64Encode(bytes)));
       }
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error picking images: $e'), backgroundColor: Colors.red),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error picking images: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 
-  // ✅ RESTORED: Capture Actual GPS Location
   Future<void> _captureLocation() async {
     setState(() => _isLocationLoading = true);
     try {
@@ -131,58 +162,161 @@ class _PostListingPageState extends State<PostListingPage> {
         permission = await Geolocator.requestPermission();
       }
 
-      if (permission == LocationPermission.denied || permission == LocationPermission.deniedForever) {
-        if (mounted) ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Enable location in settings ️'), backgroundColor: Colors.red),
-        );
+      if (permission == LocationPermission.denied ||
+          permission == LocationPermission.deniedForever) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Enable location in settings ⚙️'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
         setState(() => _isLocationLoading = false);
         return;
       }
 
-      _currentPosition = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
+      _currentPosition = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+      );
 
       if (mounted) {
         setState(() => _isLocationLoading = false);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Location captured 📍'), backgroundColor: Colors.green),
+          const SnackBar(
+            content: Text('Location captured 📍'),
+            backgroundColor: Colors.green,
+          ),
         );
       }
     } catch (e) {
       if (mounted) {
         setState(() => _isLocationLoading = false);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error capturing location: $e'), backgroundColor: Colors.red),
+          SnackBar(
+            content: Text('Error capturing location: $e'),
+            backgroundColor: Colors.red,
+          ),
         );
       }
     }
   }
 
-  // ✅ Haversine Formula for 3km Notifications
-  double _calculateDistance(double lat1, double lng1, double lat2, double lng2) {
+  double _calculateDistance(
+    double lat1,
+    double lng1,
+    double lat2,
+    double lng2,
+  ) {
     const double R = 6371;
     final dLat = (lat2 - lat1) * math.pi / 180;
     final dLng = (lng2 - lng1) * math.pi / 180;
-    final a = math.sin(dLat / 2) * math.sin(dLat / 2) +
-              math.cos(lat1 * math.pi / 180) * math.cos(lat2 * math.pi / 180) *
-              math.sin(dLng / 2) * math.sin(dLng / 2);
+    final a =
+        math.sin(dLat / 2) * math.sin(dLat / 2) +
+        math.cos(lat1 * math.pi / 180) *
+            math.cos(lat2 * math.pi / 180) *
+            math.sin(dLng / 2) *
+            math.sin(dLng / 2);
     final c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a));
     return R * c;
+  }
+
+  // ✅ Send Push Notifications via OneSignal API with REAL KEYS
+  Future<void> _sendNearbyNotifications(String householdName) async {
+    if (_currentPosition == null) return;
+
+    try {
+      final collectorsSnapshot = await FirebaseFirestore.instance
+          .collection('users')
+          .where('role', isEqualTo: 'collector')
+          .where('onesignalId', isNotEqualTo: null)
+          .where('homeLocation', isNotEqualTo: null)
+          .get();
+
+      List<String> targetPlayerIds = [];
+
+      for (var doc in collectorsSnapshot.docs) {
+        final collectorData = doc.data();
+        final homeLoc = collectorData['homeLocation'] as Map<String, dynamic>?;
+
+        if (homeLoc != null && homeLoc['latitude'] != null) {
+          final distance = _calculateDistance(
+            _currentPosition!.latitude,
+            _currentPosition!.longitude,
+            homeLoc['latitude'],
+            homeLoc['longitude'],
+          );
+
+          if (distance <= 3.0) {
+            targetPlayerIds.add(collectorData['onesignalId']);
+            debugPrint(
+              '🔔 Collector ${collectorData['name']} is within ${distance.toStringAsFixed(1)}km.',
+            );
+          }
+        }
+      }
+
+      if (targetPlayerIds.isNotEmpty) {
+        // ✅ YOUR ACTUAL ONESIGNAL KEYS ARE INSERTED HERE
+        const String oneSignalAppId = 'b3a1c454-9db2-4499-b9e5-2864a0b08f6e';
+        const String oneSignalRestApiKey =
+            'os_v2_app_woq4ive5wjcjtopffbskbmepn3edmcwoc4gudummevhhbn6a7bqsmtl3qa3e2jvew6c42dzpcziy225vfb6jeapjnlihfd3belcyj3y';
+
+        final url = Uri.parse('https://onesignal.com/api/v1/notifications');
+        final response = await http.post(
+          url,
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Basic $oneSignalRestApiKey',
+          },
+          body: jsonEncode({
+            'app_id': oneSignalAppId,
+            'include_player_ids': targetPlayerIds,
+            'headings': {'en': 'New Scrap Nearby! ♻️'},
+            'contents': {
+              'en':
+                  '$householdName posted $_selectedCategory (${_quantityController.text}) nearby!',
+            },
+          }),
+        );
+
+        if (response.statusCode == 200) {
+          debugPrint(
+            '✅ Notifications sent successfully to ${targetPlayerIds.length} collectors!',
+          );
+        } else {
+          debugPrint('❌ Failed to send notification: ${response.body}');
+        }
+      }
+    } catch (e) {
+      debugPrint('❌ Error sending notification: $e');
+    }
   }
 
   Future<void> _submitListing() async {
     if (!_formKey.currentState!.validate()) return;
     if (!isEditMode && _currentPosition == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please capture your location'), backgroundColor: Colors.orange),
+        const SnackBar(
+          content: Text('Please capture your location'),
+          backgroundColor: Colors.orange,
+        ),
       );
       return;
     }
 
     int totalSize = 0;
-    for (var img in _imagesBase64) totalSize += base64Decode(img).length;
+    for (var img in _imagesBase64) {
+      totalSize += base64Decode(img).length;
+    }
     if (totalSize > 950 * 1024) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Total image size too large. Please remove some photos.'), backgroundColor: Colors.red),
+        const SnackBar(
+          content: Text(
+            'Total image size too large. Please remove some photos.',
+          ),
+          backgroundColor: Colors.red,
+        ),
       );
       return;
     }
@@ -192,64 +326,68 @@ class _PostListingPageState extends State<PostListingPage> {
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) throw Exception('Not logged in');
 
-      // ✅ Use actual GPS coordinates
       final locationMap = {
         'latitude': _currentPosition!.latitude,
         'longitude': _currentPosition!.longitude,
       };
 
       if (isEditMode) {
-        await FirebaseFirestore.instance.collection('listings').doc(widget.existingListing!['id']).update({
-          'category': _selectedCategory,
-          'quantity': _quantityController.text.trim(),
-          'description': _descriptionController.text.trim(),
-          'images': _imagesBase64,
-          'location': locationMap,
-          'updatedAt': FieldValue.serverTimestamp(),
-        });
+        await FirebaseFirestore.instance
+            .collection('listings')
+            .doc(widget.existingListing!['id'])
+            .update({
+              'category': _selectedCategory,
+              'quantity': _quantityController.text.trim(),
+              'description': _descriptionController.text.trim(),
+              'images': _imagesBase64,
+              'location': locationMap,
+              'updatedAt': FieldValue.serverTimestamp(),
+            });
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Listing updated successfully! ✅'), backgroundColor: Colors.green));
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Listing updated successfully! ✅'),
+              backgroundColor: Colors.green,
+            ),
+          );
           Navigator.pop(context);
         }
       } else {
-        final userDoc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+        final userDoc = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(user.uid)
+            .get();
+        final householdName = userDoc.data()?['name'] ?? 'A Household';
 
         await FirebaseFirestore.instance.collection('listings').add({
-          'uid': user.uid, 'householdUid': user.uid,
-          'householdName': userDoc.data()?['name'] ?? 'Household',
+          'uid': user.uid,
+          'householdUid': user.uid,
+          'householdName': householdName,
           'category': _selectedCategory,
           'quantity': _quantityController.text.trim(),
           'description': _descriptionController.text.trim(),
           'location': locationMap,
-          'status': 'Active', 'createdAt': FieldValue.serverTimestamp(),
-          'bids': [], 'highestBid': 0.0, 'images': _imagesBase64,
+          'status': 'Active',
+          'createdAt': FieldValue.serverTimestamp(),
+          'bids': [],
+          'highestBid': 0.0,
+          'images': _imagesBase64,
         });
 
-        // ✅ Trigger 3km Notification Logic using actual GPS vs Collector's saved area
-        final collectorsSnapshot = await FirebaseFirestore.instance
-            .collection('users')
-            .where('role', isEqualTo: 'collector')
-            .where('homeLocation', isNotEqualTo: null)
-            .get();
-
-        for (var doc in collectorsSnapshot.docs) {
-          final collectorData = doc.data();
-          final homeLoc = collectorData['homeLocation'] as Map<String, dynamic>?;
-          if (homeLoc != null) {
-            final distance = _calculateDistance(
-              _currentPosition!.latitude, _currentPosition!.longitude,
-              homeLoc['latitude'], homeLoc['longitude'],
-            );
-
-            if (distance <= 3.0) {
-              debugPrint('🔔 Collector ${collectorData['name']} is within ${distance.toStringAsFixed(1)}km.');
-            }
-          }
-        }
+        // ✅ Trigger automated notifications immediately after posting
+        await _sendNearbyNotifications(householdName);
 
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Posted successfully! ♻️'), backgroundColor: Colors.green));
-          Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const HomePage()));
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Posted successfully! ♻️'),
+              backgroundColor: Colors.green,
+            ),
+          );
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (_) => const HomePage()),
+          );
         }
       }
     } catch (e) {
@@ -258,10 +396,17 @@ class _PostListingPageState extends State<PostListingPage> {
         String errorMsg = e.toString();
         if (errorMsg.contains('invalid-argument')) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Data too large for database. Please use smaller/fewer photos.'), backgroundColor: Colors.red),
+            const SnackBar(
+              content: Text(
+                'Data too large for database. Please use smaller/fewer photos.',
+              ),
+              backgroundColor: Colors.red,
+            ),
           );
         } else {
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red));
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+          );
         }
       }
     } finally {
@@ -280,7 +425,10 @@ class _PostListingPageState extends State<PostListingPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF2F7F3),
-      appBar: KalaKalAppBar(title: isEditMode ? 'Edit Scrap' : 'Post Scrap', showBackButton: true),
+      appBar: KalaKalAppBar(
+        title: isEditMode ? 'Edit Scrap' : 'Post Scrap',
+        showBackButton: true,
+      ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Form(
@@ -288,11 +436,26 @@ class _PostListingPageState extends State<PostListingPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(isEditMode ? 'Update your listing details:' : 'What are you selling?',
-                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.green)),
+              Text(
+                isEditMode
+                    ? 'Update your listing details:'
+                    : 'What are you selling?',
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.green,
+                ),
+              ),
               const SizedBox(height: 16),
 
-              const Text('Photos (Max 3)', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.green)),
+              const Text(
+                'Photos (Max 3)',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.green,
+                ),
+              ),
               const SizedBox(height: 8),
               SizedBox(
                 height: 120,
@@ -301,27 +464,80 @@ class _PostListingPageState extends State<PostListingPage> {
                   itemCount: _imagesBase64.length + 1,
                   itemBuilder: (context, index) {
                     if (index == _imagesBase64.length) {
-                      if (_imagesBase64.length >= 3) return const SizedBox.shrink();
+                      if (_imagesBase64.length >= 3) {
+                        return const SizedBox.shrink();
+                      }
                       return GestureDetector(
                         onTap: _pickImages,
-                        child: Container(width: 120, height: 120, margin: const EdgeInsets.only(right: 8),
-                          decoration: BoxDecoration(color: Colors.grey.shade200, borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.grey.shade400)),
-                          child: const Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-                            Icon(Icons.add_a_photo, size: 30, color: Colors.grey), SizedBox(height: 4),
-                            Text('Add Photo', style: TextStyle(color: Colors.grey, fontSize: 12, fontWeight: FontWeight.w500)),
-                          ]),
+                        child: Container(
+                          width: 120,
+                          height: 120,
+                          margin: const EdgeInsets.only(right: 8),
+                          decoration: BoxDecoration(
+                            color: Colors.grey.shade200,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: Colors.grey.shade400),
+                          ),
+                          child: const Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.add_a_photo,
+                                size: 30,
+                                color: Colors.grey,
+                              ),
+                              SizedBox(height: 4),
+                              Text(
+                                'Add Photo',
+                                style: TextStyle(
+                                  color: Colors.grey,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       );
                     }
-                    return Stack(children: [
-                      Container(width: 120, height: 120, margin: const EdgeInsets.only(right: 8),
-                        decoration: BoxDecoration(image: DecorationImage(image: MemoryImage(base64Decode(_imagesBase64[index])), fit: BoxFit.cover), borderRadius: BorderRadius.circular(12))),
-                      Positioned(top: 4, right: 12, child: GestureDetector(
-                        onTap: () => setState(() => _imagesBase64.removeAt(index)),
-                        child: Container(padding: const EdgeInsets.all(4), decoration: const BoxDecoration(color: Colors.red, shape: BoxShape.circle),
-                          child: const Icon(Icons.close, color: Colors.white, size: 16)),
-                      )),
-                    ]);
+                    return Stack(
+                      children: [
+                        Container(
+                          width: 120,
+                          height: 120,
+                          margin: const EdgeInsets.only(right: 8),
+                          decoration: BoxDecoration(
+                            image: DecorationImage(
+                              image: MemoryImage(
+                                base64Decode(_imagesBase64[index]),
+                              ),
+                              fit: BoxFit.cover,
+                            ),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        Positioned(
+                          top: 4,
+                          right: 12,
+                          child: GestureDetector(
+                            onTap: () =>
+                                setState(() => _imagesBase64.removeAt(index)),
+                            child: Container(
+                              padding: const EdgeInsets.all(4),
+                              decoration: const BoxDecoration(
+                                color: Colors.red,
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(
+                                Icons.close,
+                                color: Colors.white,
+                                size: 16,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    );
                   },
                 ),
               ),
@@ -329,34 +545,84 @@ class _PostListingPageState extends State<PostListingPage> {
               const SizedBox(height: 16),
               DropdownButtonFormField<String>(
                 initialValue: _selectedCategory,
-                decoration: const InputDecoration(labelText: 'Category', border: OutlineInputBorder(), prefixIcon: Icon(Icons.category, color: Colors.green), filled: true, fillColor: Colors.white),
-                items: _categories.map((c) => DropdownMenuItem(value: c, child: Text(c))).toList(),
+                decoration: const InputDecoration(
+                  labelText: 'Category',
+                  border: OutlineInputBorder(),
+                  prefixIcon: Icon(Icons.category, color: Colors.green),
+                  filled: true,
+                  fillColor: Colors.white,
+                ),
+                items: _categories
+                    .map((c) => DropdownMenuItem(value: c, child: Text(c)))
+                    .toList(),
                 onChanged: (v) => setState(() => _selectedCategory = v!),
                 validator: (v) => v == null ? 'Required' : null,
               ),
               const SizedBox(height: 16),
-              TextFormField(controller: _quantityController, decoration: const InputDecoration(labelText: 'Quantity (e.g., 5kg)', border: OutlineInputBorder(), prefixIcon: Icon(Icons.scale, color: Colors.green), filled: true, fillColor: Colors.white), validator: (v) => v?.isEmpty == true ? 'Required' : null),
+              TextFormField(
+                controller: _quantityController,
+                decoration: const InputDecoration(
+                  labelText: 'Quantity (e.g., 5kg)',
+                  border: OutlineInputBorder(),
+                  prefixIcon: Icon(Icons.scale, color: Colors.green),
+                  filled: true,
+                  fillColor: Colors.white,
+                ),
+                validator: (v) => v?.isEmpty == true ? 'Required' : null,
+              ),
               const SizedBox(height: 16),
-              TextFormField(controller: _descriptionController, maxLines: 3, decoration: const InputDecoration(labelText: 'Description', border: OutlineInputBorder(), prefixIcon: Icon(Icons.description, color: Colors.green), filled: true, fillColor: Colors.white), validator: (v) => v?.isEmpty == true ? 'Required' : null),
+              TextFormField(
+                controller: _descriptionController,
+                maxLines: 3,
+                decoration: const InputDecoration(
+                  labelText: 'Description',
+                  border: OutlineInputBorder(),
+                  prefixIcon: Icon(Icons.description, color: Colors.green),
+                  filled: true,
+                  fillColor: Colors.white,
+                ),
+                validator: (v) => v?.isEmpty == true ? 'Required' : null,
+              ),
 
-              // ✅ RESTORED: Capture Current Location Button
               const SizedBox(height: 24),
-              const Text('Pickup Location', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.green)),
+              const Text(
+                'Pickup Location',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.green,
+                ),
+              ),
               const SizedBox(height: 8),
               ElevatedButton.icon(
                 onPressed: _isLocationLoading ? null : _captureLocation,
                 icon: _isLocationLoading
-                    ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
                     : const Icon(Icons.my_location),
                 label: Text(
-                  _isLocationLoading ? 'Getting...' : (_currentPosition == null ? '📍 Capture Current Location' : '✅ Location Captured'),
+                  _isLocationLoading
+                      ? 'Getting...'
+                      : (_currentPosition == null
+                            ? ' Capture Current Location'
+                            : '✅ Location Captured'),
                   style: const TextStyle(fontWeight: FontWeight.bold),
                 ),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: _currentPosition != null ? Colors.green : Colors.blue,
+                  backgroundColor: _currentPosition != null
+                      ? Colors.green
+                      : Colors.blue,
                   foregroundColor: Colors.white,
                   minimumSize: const Size(double.infinity, 50),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                 ),
               ),
               if (_currentPosition != null)
@@ -369,7 +635,11 @@ class _PostListingPageState extends State<PostListingPage> {
                 ),
 
               const SizedBox(height: 32),
-              PrimaryButton(text: isEditMode ? 'UPDATE LISTING' : 'POST LISTING', onPressed: _submitListing, isLoading: _isLoading),
+              PrimaryButton(
+                text: isEditMode ? 'UPDATE LISTING' : 'POST LISTING',
+                onPressed: _submitListing,
+                isLoading: _isLoading,
+              ),
             ],
           ),
         ),
