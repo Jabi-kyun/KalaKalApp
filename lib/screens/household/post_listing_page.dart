@@ -8,6 +8,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import '../widgets/top_snackbar.dart'; // ✅ ADDED
 import '../home_page.dart';
 import '../widgets/kala_kal_app_bar.dart';
 import '../widgets/primary_button.dart';
@@ -75,7 +76,8 @@ class _PostListingPageState extends State<PostListingPage> {
     if (isEditMode) {
       _selectedCategory = widget.existingListing!['category'] ?? 'Plastic';
       _quantityController.text = widget.existingListing!['quantity'] ?? '';
-      _descriptionController.text = widget.existingListing!['description'] ?? '';
+      _descriptionController.text =
+          widget.existingListing!['description'] ?? '';
 
       if (widget.existingListing!['images'] != null) {
         _imagesBase64 = List<String>.from(widget.existingListing!['images']);
@@ -104,11 +106,10 @@ class _PostListingPageState extends State<PostListingPage> {
 
   Future<void> _pickImages() async {
     if (_imagesBase64.length >= 3) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Maximum 3 images allowed'),
-          backgroundColor: Colors.orange,
-        ),
+      TopSnackBar.show(
+        context,
+        message: 'Maximum 3 images allowed',
+        backgroundColor: Colors.orange,
       );
       return;
     }
@@ -129,11 +130,10 @@ class _PostListingPageState extends State<PostListingPage> {
         );
         if (currentSize + bytes.length > 800 * 1024) {
           if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Images too large. Please use fewer photos.'),
-                backgroundColor: Colors.red,
-              ),
+            TopSnackBar.show(
+              context,
+              message: 'Images too large. Please use fewer photos.',
+              backgroundColor: Colors.red,
             );
           }
           break;
@@ -142,11 +142,10 @@ class _PostListingPageState extends State<PostListingPage> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error picking images: $e'),
-            backgroundColor: Colors.red,
-          ),
+        TopSnackBar.show(
+          context,
+          message: 'Error picking images: $e',
+          backgroundColor: Colors.red,
         );
       }
     }
@@ -163,11 +162,10 @@ class _PostListingPageState extends State<PostListingPage> {
       if (permission == LocationPermission.denied ||
           permission == LocationPermission.deniedForever) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Enable location in settings ⚙️'),
-              backgroundColor: Colors.red,
-            ),
+          TopSnackBar.show(
+            context,
+            message: 'Enable location in settings ⚙️',
+            backgroundColor: Colors.red,
           );
         }
         setState(() => _isLocationLoading = false);
@@ -180,31 +178,35 @@ class _PostListingPageState extends State<PostListingPage> {
 
       if (mounted) {
         setState(() => _isLocationLoading = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Location captured 📍'),
-            backgroundColor: Colors.green,
-          ),
+        TopSnackBar.show(
+          context,
+          message: 'Location captured 📍',
+          backgroundColor: Colors.green,
         );
       }
     } catch (e) {
       if (mounted) {
         setState(() => _isLocationLoading = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error capturing location: $e'),
-            backgroundColor: Colors.red,
-          ),
+        TopSnackBar.show(
+          context,
+          message: 'Error capturing location: $e',
+          backgroundColor: Colors.red,
         );
       }
     }
   }
 
-  double _calculateDistance(double lat1, double lng1, double lat2, double lng2) {
+  double _calculateDistance(
+    double lat1,
+    double lng1,
+    double lat2,
+    double lng2,
+  ) {
     const double R = 6371;
     final dLat = (lat2 - lat1) * math.pi / 180;
     final dLng = (lng2 - lng1) * math.pi / 180;
-    final a = math.sin(dLat / 2) * math.sin(dLat / 2) +
+    final a =
+        math.sin(dLat / 2) * math.sin(dLat / 2) +
         math.cos(lat1 * math.pi / 180) *
             math.cos(lat2 * math.pi / 180) *
             math.sin(dLng / 2) *
@@ -241,19 +243,22 @@ class _PostListingPageState extends State<PostListingPage> {
 
           if (distance <= 3.0) {
             targetPlayerIds.add(collectorData['onesignalId']);
-            debugPrint('🔔 Collector ${collectorData['name']} is within ${distance.toStringAsFixed(1)}km.');
+            debugPrint(
+              '🔔 Collector ${collectorData['name']} is within ${distance.toStringAsFixed(1)}km.',
+            );
           }
         }
       }
 
       if (targetPlayerIds.isNotEmpty) {
-        // ✅ SECURE: Read from .env file
         final String oneSignalAppId = dotenv.env['ONESIGNAL_APP_ID'] ?? '';
-        final String oneSignalRestApiKey = dotenv.env['ONESIGNAL_REST_API_KEY'] ?? '';
-        
-        // ✅ Safety check to prevent API errors if .env isn't loaded
+        final String oneSignalRestApiKey =
+            dotenv.env['ONESIGNAL_REST_API_KEY'] ?? '';
+
         if (oneSignalAppId.isEmpty || oneSignalRestApiKey.isEmpty) {
-          debugPrint('⚠️ OneSignal keys missing from .env file. Notification skipped.');
+          debugPrint(
+            '⚠️ OneSignal keys missing from .env file. Notification skipped.',
+          );
           return;
         }
 
@@ -269,13 +274,16 @@ class _PostListingPageState extends State<PostListingPage> {
             'include_player_ids': targetPlayerIds,
             'headings': {'en': 'New Scrap Nearby! ♻️'},
             'contents': {
-              'en': '$householdName posted $_selectedCategory (${_quantityController.text}) nearby!',
+              'en':
+                  '$householdName posted $_selectedCategory (${_quantityController.text}) nearby!',
             },
           }),
         );
 
         if (response.statusCode == 200) {
-          debugPrint('✅ Notifications sent successfully to ${targetPlayerIds.length} collectors!');
+          debugPrint(
+            '✅ Notifications sent successfully to ${targetPlayerIds.length} collectors!',
+          );
         } else {
           debugPrint('❌ Failed to send notification: ${response.body}');
         }
@@ -288,11 +296,10 @@ class _PostListingPageState extends State<PostListingPage> {
   Future<void> _submitListing() async {
     if (!_formKey.currentState!.validate()) return;
     if (!isEditMode && _currentPosition == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please capture your location'),
-          backgroundColor: Colors.orange,
-        ),
+      TopSnackBar.show(
+        context,
+        message: 'Please capture your location',
+        backgroundColor: Colors.orange,
       );
       return;
     }
@@ -302,11 +309,10 @@ class _PostListingPageState extends State<PostListingPage> {
       totalSize += base64Decode(img).length;
     }
     if (totalSize > 950 * 1024) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Total image size too large. Please remove some photos.'),
-          backgroundColor: Colors.red,
-        ),
+      TopSnackBar.show(
+        context,
+        message: 'Total image size too large. Please remove some photos.',
+        backgroundColor: Colors.red,
       );
       return;
     }
@@ -334,11 +340,10 @@ class _PostListingPageState extends State<PostListingPage> {
               'updatedAt': FieldValue.serverTimestamp(),
             });
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Listing updated successfully! ✅'),
-              backgroundColor: Colors.green,
-            ),
+          TopSnackBar.show(
+            context,
+            message: 'Listing updated successfully! ✅',
+            backgroundColor: Colors.green,
           );
           Navigator.pop(context);
         }
@@ -368,11 +373,10 @@ class _PostListingPageState extends State<PostListingPage> {
         await _sendNearbyNotifications(householdName);
 
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Posted successfully! ♻️'),
-              backgroundColor: Colors.green,
-            ),
+          TopSnackBar.show(
+            context,
+            message: 'Posted successfully! ♻️',
+            backgroundColor: Colors.green,
           );
           Navigator.pushReplacement(
             context,
@@ -385,15 +389,17 @@ class _PostListingPageState extends State<PostListingPage> {
       if (mounted) {
         String errorMsg = e.toString();
         if (errorMsg.contains('invalid-argument')) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Data too large for database. Please use smaller/fewer photos.'),
-              backgroundColor: Colors.red,
-            ),
+          TopSnackBar.show(
+            context,
+            message:
+                'Data too large for database. Please use smaller/fewer photos.',
+            backgroundColor: Colors.red,
           );
         } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+          TopSnackBar.show(
+            context,
+            message: 'Error: $e',
+            backgroundColor: Colors.red,
           );
         }
       }
@@ -425,7 +431,9 @@ class _PostListingPageState extends State<PostListingPage> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                isEditMode ? 'Update your listing details:' : 'What are you selling?',
+                isEditMode
+                    ? 'Update your listing details:'
+                    : 'What are you selling?',
                 style: const TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
@@ -467,11 +475,19 @@ class _PostListingPageState extends State<PostListingPage> {
                           child: const Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              Icon(Icons.add_a_photo, size: 30, color: Colors.grey),
+                              Icon(
+                                Icons.add_a_photo,
+                                size: 30,
+                                color: Colors.grey,
+                              ),
                               SizedBox(height: 4),
                               Text(
                                 'Add Photo',
-                                style: TextStyle(color: Colors.grey, fontSize: 12, fontWeight: FontWeight.w500),
+                                style: TextStyle(
+                                  color: Colors.grey,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w500,
+                                ),
                               ),
                             ],
                           ),
@@ -486,7 +502,9 @@ class _PostListingPageState extends State<PostListingPage> {
                           margin: const EdgeInsets.only(right: 8),
                           decoration: BoxDecoration(
                             image: DecorationImage(
-                              image: MemoryImage(base64Decode(_imagesBase64[index])),
+                              image: MemoryImage(
+                                base64Decode(_imagesBase64[index]),
+                              ),
                               fit: BoxFit.cover,
                             ),
                             borderRadius: BorderRadius.circular(12),
@@ -496,14 +514,19 @@ class _PostListingPageState extends State<PostListingPage> {
                           top: 4,
                           right: 12,
                           child: GestureDetector(
-                            onTap: () => setState(() => _imagesBase64.removeAt(index)),
+                            onTap: () =>
+                                setState(() => _imagesBase64.removeAt(index)),
                             child: Container(
                               padding: const EdgeInsets.all(4),
                               decoration: const BoxDecoration(
                                 color: Colors.red,
                                 shape: BoxShape.circle,
                               ),
-                              child: const Icon(Icons.close, color: Colors.white, size: 16),
+                              child: const Icon(
+                                Icons.close,
+                                color: Colors.white,
+                                size: 16,
+                              ),
                             ),
                           ),
                         ),
@@ -515,7 +538,6 @@ class _PostListingPageState extends State<PostListingPage> {
 
               const SizedBox(height: 16),
               DropdownButtonFormField<String>(
-                // ✅ FIXED: Changed 'initialValue' to 'value' to prevent build errors
                 value: _selectedCategory,
                 decoration: const InputDecoration(
                   labelText: 'Category',
@@ -524,7 +546,9 @@ class _PostListingPageState extends State<PostListingPage> {
                   filled: true,
                   fillColor: Colors.white,
                 ),
-                items: _categories.map((c) => DropdownMenuItem(value: c, child: Text(c))).toList(),
+                items: _categories
+                    .map((c) => DropdownMenuItem(value: c, child: Text(c)))
+                    .toList(),
                 onChanged: (v) => setState(() => _selectedCategory = v!),
                 validator: (v) => v == null ? 'Required' : null,
               ),
@@ -570,20 +594,29 @@ class _PostListingPageState extends State<PostListingPage> {
                     ? const SizedBox(
                         width: 20,
                         height: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
                       )
                     : const Icon(Icons.my_location),
                 label: Text(
                   _isLocationLoading
                       ? 'Getting...'
-                      : (_currentPosition == null ? ' Capture Current Location' : '✅ Location Captured'),
+                      : (_currentPosition == null
+                            ? ' Capture Current Location'
+                            : '✅ Location Captured'),
                   style: const TextStyle(fontWeight: FontWeight.bold),
                 ),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: _currentPosition != null ? Colors.green : Colors.blue,
+                  backgroundColor: _currentPosition != null
+                      ? Colors.green
+                      : Colors.blue,
                   foregroundColor: Colors.white,
                   minimumSize: const Size(double.infinity, 50),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                 ),
               ),
               if (_currentPosition != null)
