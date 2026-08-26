@@ -26,18 +26,11 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
 
   Future<void> _fetchStats() async {
     try {
-      // Fetch total users
-      final usersSnapshot = await FirebaseFirestore.instance
-          .collection('users')
-          .get();
-
-      // Fetch active listings
+      final usersSnapshot = await FirebaseFirestore.instance.collection('users').get();
       final activeSnapshot = await FirebaseFirestore.instance
           .collection('listings')
           .where('status', isEqualTo: 'Active')
           .get();
-
-      // Fetch completed transactions
       final finishedSnapshot = await FirebaseFirestore.instance
           .collection('listings')
           .where('status', isEqualTo: 'Finished')
@@ -66,10 +59,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
 
     return Scaffold(
       backgroundColor: const Color(0xFFF2F7F3),
-      appBar: const KalaKalAppBar(
-        title: 'Admin Dashboard',
-        showBackButton: true,
-      ),
+      appBar: const KalaKalAppBar(title: 'Admin Dashboard', showBackButton: true),
       body: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -77,29 +67,17 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
           children: [
             const Text(
               'System Overview',
-              style: TextStyle(
-                fontSize: 22,
-                fontWeight: FontWeight.bold,
-                color: Colors.green,
-              ),
+              style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.green),
             ),
             const SizedBox(height: 16),
             Row(
               children: [
                 Expanded(
-                  child: StatCard(
-                    label: 'Total Users',
-                    value: totalUsers.toString(),
-                    color: Colors.blue,
-                  ),
+                  child: StatCard(label: 'Total Users', value: totalUsers.toString(), color: Colors.blue),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
-                  child: StatCard(
-                    label: 'Active Listings',
-                    value: activeListings.toString(),
-                    color: Colors.orange,
-                  ),
+                  child: StatCard(label: 'Active Listings', value: activeListings.toString(), color: Colors.orange),
                 ),
               ],
             ),
@@ -107,31 +85,18 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
             Row(
               children: [
                 Expanded(
-                  child: StatCard(
-                    label: 'Completed',
-                    value: completedTransactions.toString(),
-                    color: Colors.green,
-                  ),
+                  child: StatCard(label: 'Completed', value: completedTransactions.toString(), color: Colors.green),
                 ),
                 const SizedBox(width: 12),
-                // Placeholder for future stats
                 Expanded(
-                  child: StatCard(
-                    label: 'Cancelled',
-                    value: '0',
-                    color: Colors.red,
-                  ),
+                  child: StatCard(label: 'Cancelled', value: '0', color: Colors.red),
                 ),
               ],
             ),
             const SizedBox(height: 32),
             const Text(
               'Management',
-              style: TextStyle(
-                fontSize: 22,
-                fontWeight: FontWeight.bold,
-                color: Colors.green,
-              ),
+              style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.green),
             ),
             const SizedBox(height: 16),
             Expanded(
@@ -147,9 +112,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
                     color: Colors.purple,
                     onTap: () => Navigator.push(
                       context,
-                      MaterialPageRoute(
-                        builder: (_) => const AdminManageListingsPage(),
-                      ),
+                      MaterialPageRoute(builder: (_) => const AdminManageListingsPage()),
                     ),
                   ),
                   _AdminActionCard(
@@ -159,9 +122,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
                     color: Colors.teal,
                     onTap: () => Navigator.push(
                       context,
-                      MaterialPageRoute(
-                        builder: (_) => const AdminManageUsersPage(),
-                      ),
+                      MaterialPageRoute(builder: (_) => const AdminManageUsersPage()),
                     ),
                   ),
                 ],
@@ -174,7 +135,6 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
   }
 }
 
-// Simple Action Card specifically for Admin
 class _AdminActionCard extends StatelessWidget {
   final IconData icon;
   final String title;
@@ -199,29 +159,16 @@ class _AdminActionCard extends StatelessWidget {
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(12),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black12,
-              blurRadius: 4,
-              offset: const Offset(0, 2),
-            ),
-          ],
+          boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 4, offset: const Offset(0, 2))],
         ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(icon, size: 40, color: color),
             const SizedBox(height: 12),
-            Text(
-              title,
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-            ),
+            Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
             const SizedBox(height: 4),
-            Text(
-              subtitle,
-              textAlign: TextAlign.center,
-              style: const TextStyle(color: Colors.grey, fontSize: 12),
-            ),
+            Text(subtitle, textAlign: TextAlign.center, style: const TextStyle(color: Colors.grey, fontSize: 12)),
           ],
         ),
       ),

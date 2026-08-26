@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'widgets/top_snackbar.dart';
 import 'signup_page.dart';
 import 'home_page.dart';
 import 'widgets/primary_button.dart';
@@ -16,6 +17,7 @@ class _LoginPageState extends State<LoginPage> {
   final emailController = TextEditingController();
   final passwordController = TextEditingController();
   bool _isLoading = false;
+  bool _obscurePassword = true;
 
   Future<void> login() async {
     if (!_formKey.currentState!.validate() || _isLoading) return;
@@ -29,11 +31,10 @@ class _LoginPageState extends State<LoginPage> {
 
       if (!mounted) return;
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("Welcome to KalaKalApp 🌿"),
-          backgroundColor: Colors.green,
-        ),
+      TopSnackBar.show(
+        context,
+        message: "Welcome to KalaKalApp 🌿",
+        backgroundColor: Colors.green,
       );
 
       Navigator.of(context).pushAndRemoveUntil(
@@ -52,23 +53,19 @@ class _LoginPageState extends State<LoginPage> {
         message = 'Too many attempts. Try again later.';
 
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(message), backgroundColor: Colors.red),
-      );
+      TopSnackBar.show(context, message: message, backgroundColor: Colors.red);
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error: ${e.toString()}'),
-          backgroundColor: Colors.red,
-        ),
+      TopSnackBar.show(
+        context,
+        message: 'Error: ${e.toString()}',
+        backgroundColor: Colors.red,
       );
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
   }
 
-  // ✅ NEW: Forgot Password Logic
   Future<void> _forgotPassword() async {
     final forgotEmailController = TextEditingController();
 
@@ -114,24 +111,21 @@ class _LoginPageState extends State<LoginPage> {
     if (result == true) {
       final email = forgotEmailController.text.trim();
       if (email.isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Please enter an email address.'),
-            backgroundColor: Colors.orange,
-          ),
+        TopSnackBar.show(
+          context,
+          message: 'Please enter an email address.',
+          backgroundColor: Colors.orange,
         );
         return;
       }
 
       try {
-        // ✅ Firebase handles the secure email sending automatically
         await FirebaseAuth.instance.sendPasswordResetEmail(email: email);
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Password reset link sent! Check your email. 📧'),
-              backgroundColor: Colors.green,
-            ),
+          TopSnackBar.show(
+            context,
+            message: 'Password reset link sent! Check your email. 📧',
+            backgroundColor: Colors.green,
           );
         }
       } on FirebaseAuthException catch (e) {
@@ -142,17 +136,18 @@ class _LoginPageState extends State<LoginPage> {
           message = 'Invalid email format.';
         }
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(message), backgroundColor: Colors.red),
+          TopSnackBar.show(
+            context,
+            message: message,
+            backgroundColor: Colors.red,
           );
         }
       } catch (e) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Error: ${e.toString()}'),
-              backgroundColor: Colors.red,
-            ),
+          TopSnackBar.show(
+            context,
+            message: 'Error: ${e.toString()}',
+            backgroundColor: Colors.red,
           );
         }
       }
@@ -238,10 +233,22 @@ class _LoginPageState extends State<LoginPage> {
                         const SizedBox(height: 14),
                         TextFormField(
                           controller: passwordController,
-                          obscureText: true,
-                          decoration: const InputDecoration(
+                          obscureText: _obscurePassword,
+                          decoration: InputDecoration(
                             labelText: "Password",
-                            prefixIcon: Icon(Icons.lock),
+                            prefixIcon: const Icon(Icons.lock),
+                            suffixIcon: IconButton(
+                              icon: Icon(
+                                _obscurePassword
+                                    ? Icons.visibility_off
+                                    : Icons.visibility,
+                              ),
+                              onPressed: () {
+                                setState(() {
+                                  _obscurePassword = !_obscurePassword;
+                                });
+                              },
+                            ),
                           ),
                           validator: (value) {
                             if (value == null || value.isEmpty)
@@ -251,8 +258,6 @@ class _LoginPageState extends State<LoginPage> {
                             return null;
                           },
                         ),
-
-                        // ✅ NEW: Forgot Password Button
                         Align(
                           alignment: Alignment.centerRight,
                           child: TextButton(
@@ -267,7 +272,6 @@ class _LoginPageState extends State<LoginPage> {
                           ),
                         ),
                         const SizedBox(height: 8),
-
                         PrimaryButton(
                           text: "LOGIN",
                           onPressed: login,

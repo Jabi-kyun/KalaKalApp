@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../widgets/kala_kal_app_bar.dart';
 import '../widgets/empty_state.dart';
+import '../widgets/top_snackbar.dart'; // ✅ ADDED
 
 class AdminManageUsersPage extends StatefulWidget {
   const AdminManageUsersPage({super.key});
@@ -72,20 +73,20 @@ class _AdminManageUsersPageState extends State<AdminManageUsersPage> {
           allUsers.removeWhere((item) => item['id'] == docId);
         });
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('User deleted successfully'),
-              backgroundColor: Colors.green,
-            ),
+          // ✅ UPDATED TO TOP SNACKBAR
+          TopSnackBar.show(
+            context,
+            message: 'User deleted successfully',
+            backgroundColor: Colors.green,
           );
         }
       } catch (e) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Error deleting: $e'),
-              backgroundColor: Colors.red,
-            ),
+          // ✅ UPDATED TO TOP SNACKBAR
+          TopSnackBar.show(
+            context,
+            message: 'Error deleting: $e',
+            backgroundColor: Colors.red,
           );
         }
       }

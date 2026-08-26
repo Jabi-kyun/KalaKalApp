@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import '../widgets/kala_kal_app_bar.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/status_chip.dart';
+import '../widgets/top_snackbar.dart'; // ✅ ADDED
 
 class AdminManageListingsPage extends StatefulWidget {
   const AdminManageListingsPage({super.key});
@@ -77,20 +78,20 @@ class _AdminManageListingsPageState extends State<AdminManageListingsPage> {
           allListings.removeWhere((item) => item['id'] == docId);
         });
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Listing deleted successfully'),
-              backgroundColor: Colors.green,
-            ),
+          // ✅ UPDATED TO TOP SNACKBAR
+          TopSnackBar.show(
+            context,
+            message: 'Listing deleted successfully',
+            backgroundColor: Colors.green,
           );
         }
       } catch (e) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Error deleting: $e'),
-              backgroundColor: Colors.red,
-            ),
+          // ✅ UPDATED TO TOP SNACKBAR
+          TopSnackBar.show(
+            context,
+            message: 'Error deleting: $e',
+            backgroundColor: Colors.red,
           );
         }
       }

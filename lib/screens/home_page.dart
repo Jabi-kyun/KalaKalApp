@@ -2,7 +2,6 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:onesignal_flutter/onesignal_flutter.dart'; // ✅ NEW: OneSignal Import
 import 'login_page.dart';
 import 'household/post_listing_page.dart';
 import 'household/my_listings_page.dart';
@@ -14,6 +13,7 @@ import 'collector/my_bids_page.dart';
 import 'collector/history_page.dart';
 import 'collector/edit_profile_page.dart';
 import 'admin/admin_dashboard_page.dart';
+import 'about_us_page.dart';
 import 'widgets/kala_kal_app_bar.dart';
 import 'widgets/action_card.dart';
 
@@ -62,16 +62,6 @@ class _HomePageState extends State<HomePage> {
           userProfilePic = doc.data()?['profilePic'];
           isLoading = false;
         });
-
-        // ✅ NEW: Save OneSignal Player ID to Firestore
-        String? playerId = await OneSignal.User.pushSubscription.id;
-        if (playerId != null) {
-          await FirebaseFirestore.instance
-              .collection('users')
-              .doc(user.uid)
-              .update({'onesignalId': playerId});
-          debugPrint('✅ OneSignal ID saved: $playerId');
-        }
 
         if (userRole == 'collector') {
           _fetchActiveListingsCount();
@@ -139,6 +129,33 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
+  void _onMenuSelected(String value) {
+    switch (value) {
+      case 'edit_profile':
+        if (userRole == 'collector') {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const EditCollectorProfilePage()),
+          ).then((_) => _loadUserData());
+        } else {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const EditProfilePage()),
+          ).then((_) => _loadUserData());
+        }
+        break;
+      case 'about_us':
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const AboutUsPage()),
+        );
+        break;
+      case 'logout':
+        _logout();
+        break;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     if (isLoading) {
@@ -153,21 +170,38 @@ class _HomePageState extends State<HomePage> {
       appBar: KalaKalAppBar(
         title: 'KalaKalApp',
         actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: 16.0),
-            child: Center(
-              child: Text(
-                userRole == 'household'
-                    ? '🏠 Household'
-                    : (userRole == 'admin' ? ' Admin' : '🚛 Collector'),
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 14,
-                  fontWeight: FontWeight.bold,
+          PopupMenuButton<String>(
+            icon: const Icon(Icons.more_vert, color: Colors.white),
+            onSelected: _onMenuSelected,
+            itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
+              const PopupMenuItem<String>(
+                value: 'edit_profile',
+                child: ListTile(
+                  leading: Icon(Icons.person_outline, color: Colors.green),
+                  title: Text('Edit Profile'),
+                  contentPadding: EdgeInsets.zero,
                 ),
               ),
-            ),
+              const PopupMenuItem<String>(
+                value: 'about_us',
+                child: ListTile(
+                  leading: Icon(Icons.info_outline, color: Colors.blue),
+                  title: Text('About Us'),
+                  contentPadding: EdgeInsets.zero,
+                ),
+              ),
+              const PopupMenuDivider(),
+              const PopupMenuItem<String>(
+                value: 'logout',
+                child: ListTile(
+                  leading: Icon(Icons.logout, color: Colors.red),
+                  title: Text('Logout', style: TextStyle(color: Colors.red)),
+                  contentPadding: EdgeInsets.zero,
+                ),
+              ),
+            ],
           ),
+          const SizedBox(width: 8),
         ],
       ),
       body: Padding(
@@ -238,29 +272,6 @@ class _HomePageState extends State<HomePage> {
             ),
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.red,
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
-          ),
-        ),
-        const Spacer(),
-        SizedBox(
-          width: double.infinity,
-          child: ElevatedButton.icon(
-            onPressed: _logout,
-            icon: const Icon(Icons.logout, color: Colors.white),
-            label: const Text(
-              'LOGOUT',
-              style: TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
-                fontSize: 16,
-              ),
-            ),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.grey,
               padding: const EdgeInsets.symmetric(vertical: 16),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
@@ -370,44 +381,7 @@ class _HomePageState extends State<HomePage> {
                   ),
                 ),
               ),
-              ActionCard(
-                icon: Icons.person_outline,
-                title: 'My Profile',
-                subtitle: 'Update your details',
-                color: Colors.teal,
-                onTap: () async {
-                  await Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => const EditProfilePage()),
-                  );
-                  _loadUserData();
-                },
-              ),
             ],
-          ),
-        ),
-
-        const SizedBox(height: 16),
-        SizedBox(
-          width: double.infinity,
-          child: ElevatedButton.icon(
-            onPressed: _logout,
-            icon: const Icon(Icons.logout, color: Colors.white),
-            label: const Text(
-              'LOGOUT',
-              style: TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
-                fontSize: 16,
-              ),
-            ),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red,
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
           ),
         ),
       ],
@@ -496,23 +470,6 @@ class _HomePageState extends State<HomePage> {
                 ),
               ),
               ActionCard(
-                icon: Icons.person_outline,
-                title: 'My Profile',
-                subtitle: 'Update your details',
-                color: Colors.teal,
-                onTap: () async {
-                  final result = await Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => const EditCollectorProfilePage(),
-                    ),
-                  );
-                  if (result == true) {
-                    _loadUserData();
-                  }
-                },
-              ),
-              ActionCard(
                 icon: Icons.history,
                 title: 'History',
                 subtitle: 'Past collections',
@@ -525,30 +482,6 @@ class _HomePageState extends State<HomePage> {
                 ),
               ),
             ],
-          ),
-        ),
-
-        const SizedBox(height: 16),
-        SizedBox(
-          width: double.infinity,
-          child: ElevatedButton.icon(
-            onPressed: _logout,
-            icon: const Icon(Icons.logout, color: Colors.white),
-            label: const Text(
-              'LOGOUT',
-              style: TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
-                fontSize: 16,
-              ),
-            ),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red,
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
           ),
         ),
       ],

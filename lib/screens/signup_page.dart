@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:intl/intl.dart'; // For formatting the date
+import 'package:intl/intl.dart';
+import 'package:geolocator/geolocator.dart';
+import 'widgets/top_snackbar.dart'; 
 import 'widgets/kala_kal_app_bar.dart';
 import 'widgets/primary_button.dart';
 
@@ -13,21 +15,20 @@ class SignupPage extends StatefulWidget {
 }
 
 class _SignupPageState extends State<SignupPage> {
-  final _formKey = GlobalKey<FormState>(); // Added for validation
-  
-  // Controllers
+  final _formKey = GlobalKey<FormState>();
+
   final nameController = TextEditingController();
   final emailController = TextEditingController();
-  final phoneController = TextEditingController(); 
+  final phoneController = TextEditingController();
   final passwordController = TextEditingController();
-  final addressController = TextEditingController(); 
-  final birthdayController = TextEditingController(); 
-  
+  final addressController = TextEditingController();
+  final birthdayController = TextEditingController();
+
   String _selectedRole = 'household';
   bool _isLoading = false;
-  DateTime? _selectedDate; // To store the actual date object
+  DateTime? _selectedDate;
+  bool _obscurePassword = true;
 
-  // Date Picker Function
   Future<void> _selectBirthday() async {
     final DateTime? picked = await showDatePicker(
       context: context,
@@ -52,54 +53,127 @@ class _SignupPageState extends State<SignupPage> {
   }
 
   Future<void> signup() async {
-    // Validate form before submitting
     if (!_formKey.currentState!.validate() || _selectedDate == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please fill all fields and select a birthday.'), backgroundColor: Colors.red),
+      TopSnackBar.show(
+        context,
+        message: 'Please fill all fields and select a birthday.',
+        backgroundColor: Colors.red,
       );
       return;
     }
 
     if (_isLoading) return;
     setState(() => _isLoading = true);
-    
-    try {
-      UserCredential user = await FirebaseAuth.instance.createUserWithEmailAndPassword(
-        email: emailController.text.trim(),
-        password: passwordController.text.trim(),
-      );
 
-      //  Save new user data to Firestore
-      await FirebaseFirestore.instance.collection("users").doc(user.user!.uid).set({
-        "uid": user.user!.uid,
+    try {
+      Map<String, dynamic>? homeLocation;
+
+      if (_selectedRole == 'collector') {
+        bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+        if (!serviceEnabled) {
+          if (mounted) {
+            setState(() => _isLoading = false);
+            TopSnackBar.show(
+              context,
+              message: 'Please enable Location Services to sign up as a Collector.',
+              backgroundColor: Colors.red,
+            );
+          }
+          return;
+        }
+
+        LocationPermission permission = await Geolocator.checkPermission();
+        if (permission == LocationPermission.denied) {
+          permission = await Geolocator.requestPermission();
+        }
+
+        if (permission == LocationPermission.denied ||
+            permission == LocationPermission.deniedForever) {
+          if (mounted) {
+            setState(() => _isLoading = false);
+            TopSnackBar.show(
+              context,
+              message: 'Location permission is required for Collectors to receive nearby scrap alerts.',
+              backgroundColor: Colors.red,
+            );
+          }
+          return;
+        }
+
+        if (mounted) {
+          TopSnackBar.show(
+            context,
+            message: 'Capturing your location... 📍',
+            backgroundColor: Colors.blue,
+          );
+        }
+
+        Position position = await Geolocator.getCurrentPosition(
+          desiredAccuracy: LocationAccuracy.high,
+        );
+        homeLocation = {
+          'latitude': position.latitude,
+          'longitude': position.longitude,
+        };
+      }
+
+      UserCredential userCredential = await FirebaseAuth.instance
+          .createUserWithEmailAndPassword(
+            email: emailController.text.trim(),
+            password: passwordController.text.trim(),
+          );
+
+      Map<String, dynamic> userData = {
+        "uid": userCredential.user!.uid,
         "name": nameController.text.trim(),
         "email": emailController.text.trim(),
-        "phone": phoneController.text.trim(), 
-        "address": addressController.text.trim(), 
-        "birthday": Timestamp.fromDate(_selectedDate!), 
+        "phone": phoneController.text.trim(),
+        "address": addressController.text.trim(),
+        "birthday": Timestamp.fromDate(_selectedDate!),
         "role": _selectedRole,
         "createdAt": FieldValue.serverTimestamp(),
         "rating": 0.0,
         "totalTransactions": 0,
-      });
+      };
+
+      if (homeLocation != null) {
+        userData["homeLocation"] = homeLocation;
+      }
+
+      await FirebaseFirestore.instance
+          .collection("users")
+          .doc(userCredential.user!.uid)
+          .set(userData);
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Account created successfully !"), backgroundColor: Colors.green),
+        TopSnackBar.show(
+          context,
+          message: "Account created successfully!",
+          backgroundColor: Colors.green,
         );
         Navigator.pop(context);
       }
     } on FirebaseAuthException catch (e) {
       String message = "Signup failed.";
-      if (e.code == 'weak-password') message = 'Password is too weak.';
-      else if (e.code == 'email-already-in-use') message = 'Email already exists.';
-      
+      if (e.code == 'weak-password')
+        message = 'Password is too weak.';
+      else if (e.code == 'email-already-in-use')
+        message = 'Email already exists.';
+
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message), backgroundColor: Colors.red));
+        TopSnackBar.show(
+          context,
+          message: message,
+          backgroundColor: Colors.red,
+        );
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString()), backgroundColor: Colors.red));
+        TopSnackBar.show(
+          context,
+          message: e.toString(),
+          backgroundColor: Colors.red,
+        );
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -121,8 +195,10 @@ class _SignupPageState extends State<SignupPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF2F7F3),
-      appBar: const KalaKalAppBar(title: "Create Account", showBackButton: true),
-      //  Wrapped in SingleChildScrollView to prevent keyboard overflow
+      appBar: const KalaKalAppBar(
+        title: "Create Account",
+        showBackButton: true,
+      ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
         child: Form(
@@ -131,73 +207,91 @@ class _SignupPageState extends State<SignupPage> {
             children: [
               const Icon(Icons.recycling, size: 80, color: Colors.green),
               const SizedBox(height: 10),
-              
-              // Name
               TextFormField(
                 controller: nameController,
-                decoration: const InputDecoration(labelText: "Full Name", prefixIcon: Icon(Icons.person)),
-                validator: (val) => val == null || val.isEmpty ? 'Required' : null,
+                decoration: const InputDecoration(
+                  labelText: "Full Name",
+                  prefixIcon: Icon(Icons.person),
+                ),
+                validator: (val) =>
+                    val == null || val.isEmpty ? 'Required' : null,
               ),
               const SizedBox(height: 10),
-              
-              // Email
               TextFormField(
                 controller: emailController,
                 keyboardType: TextInputType.emailAddress,
-                decoration: const InputDecoration(labelText: "Email", prefixIcon: Icon(Icons.email)),
-                validator: (val) => val == null || val.isEmpty ? 'Required' : null,
+                decoration: const InputDecoration(
+                  labelText: "Email",
+                  prefixIcon: Icon(Icons.email),
+                ),
+                validator: (val) =>
+                    val == null || val.isEmpty ? 'Required' : null,
               ),
               const SizedBox(height: 10),
-              
-              // Phone Number
               TextFormField(
                 controller: phoneController,
                 keyboardType: TextInputType.phone,
-                decoration: const InputDecoration(labelText: "Contact Number", prefixIcon: Icon(Icons.phone)),
-                validator: (val) => val == null || val.isEmpty ? 'Required' : null,
+                decoration: const InputDecoration(
+                  labelText: "Contact Number",
+                  prefixIcon: Icon(Icons.phone),
+                ),
+                validator: (val) =>
+                    val == null || val.isEmpty ? 'Required' : null,
               ),
               const SizedBox(height: 10),
-              
-              // Password
               TextFormField(
                 controller: passwordController,
-                obscureText: true,
-                decoration: const InputDecoration(labelText: "Password", prefixIcon: Icon(Icons.lock)),
-                validator: (val) => val == null || val.length < 6 ? 'Min 6 characters' : null,
+                obscureText: _obscurePassword,
+                decoration: InputDecoration(
+                  labelText: "Password",
+                  prefixIcon: const Icon(Icons.lock),
+                  suffixIcon: IconButton(
+                    icon: Icon(
+                      _obscurePassword
+                          ? Icons.visibility_off
+                          : Icons.visibility,
+                    ),
+                    onPressed: () {
+                      setState(() {
+                        _obscurePassword = !_obscurePassword;
+                      });
+                    },
+                  ),
+                ),
+                validator: (val) =>
+                    val == null || val.length < 6 ? 'Min 6 characters' : null,
               ),
               const SizedBox(height: 10),
-              
-              //Birthday (Read-only, opens picker
               TextFormField(
                 controller: birthdayController,
                 readOnly: true,
                 onTap: _selectBirthday,
                 decoration: const InputDecoration(
-                  labelText: "Birthday", 
+                  labelText: "Birthday",
                   prefixIcon: Icon(Icons.cake),
                   suffixIcon: Icon(Icons.calendar_today),
                 ),
-                validator: (val) => val == null || val.isEmpty ? 'Required' : null,
+                validator: (val) =>
+                    val == null || val.isEmpty ? 'Required' : null,
               ),
               const SizedBox(height: 10),
-              
-              // Address (Important Info)
               TextFormField(
                 controller: addressController,
                 maxLines: 2,
                 decoration: const InputDecoration(
-                  labelText: "Complete Address", 
+                  labelText: "Complete Address",
                   prefixIcon: Icon(Icons.home),
                   alignLabelWithHint: true,
                 ),
-                validator: (val) => val == null || val.isEmpty ? 'Required' : null,
+                validator: (val) =>
+                    val == null || val.isEmpty ? 'Required' : null,
               ),
-              
               const SizedBox(height: 15),
-              const Text("I am a:", style: TextStyle(fontWeight: FontWeight.w500)),
+              const Text(
+                "I am a:",
+                style: TextStyle(fontWeight: FontWeight.w500),
+              ),
               const SizedBox(height: 8),
-              
-              // Role Selection
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
@@ -218,10 +312,13 @@ class _SignupPageState extends State<SignupPage> {
                   const Text('Junk Collector 🚛'),
                 ],
               ),
-              
               const SizedBox(height: 20),
-              PrimaryButton(text: "SIGN UP", onPressed: signup, isLoading: _isLoading),
-              const SizedBox(height: 20), // Extra padding at bottom
+              PrimaryButton(
+                text: "SIGN UP",
+                onPressed: signup,
+                isLoading: _isLoading,
+              ),
+              const SizedBox(height: 20),
             ],
           ),
         ),

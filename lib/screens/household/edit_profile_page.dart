@@ -181,7 +181,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
             'birthday': _selectedDate != null
                 ? Timestamp.fromDate(_selectedDate!)
                 : FieldValue.delete(),
-            if (profileBase64 != null) 'profilePic': profileBase64,
+            'profilePic': ?profileBase64,
             
             // ✅ Save or delete homeLocation based on dropdown selection
             if (homeLocationMap != null) 
@@ -382,7 +382,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
               ),
               const SizedBox(height: 8),
               DropdownButtonFormField<String>(
-                value: _selectedArea,
+                initialValue: _selectedArea,
                 decoration: InputDecoration(
                   labelText: 'Select Barangay / Area',
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
