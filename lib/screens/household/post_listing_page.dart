@@ -8,12 +8,15 @@ import 'package:image_picker/image_picker.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter_dotenv/flutter_dotenv.dart';
-import '../widgets/top_snackbar.dart'; // ✅ ADDED
+import '../widgets/top_snackbar.dart';
 import '../home_page.dart';
 import '../widgets/kala_kal_app_bar.dart';
 import '../widgets/primary_button.dart';
 
-// Comprehensive Legazpi City Barangays for 3km Notification Radius
+// ============================================================================
+// CONSTANTS & DATA
+// ============================================================================
+
 final List<Map<String, dynamic>> legazpiBarangays = [
   {'name': 'Albay District', 'lat': 13.1485, 'lng': 123.7360},
   {'name': 'EM\'s / Rizal Street', 'lat': 13.1450, 'lng': 123.7320},
@@ -38,6 +41,10 @@ final List<Map<String, dynamic>> legazpiBarangays = [
   {'name': 'Taysan', 'lat': 13.1620, 'lng': 123.7300},
 ];
 
+// ============================================================================
+// WIDGET CLASS
+// ============================================================================
+
 class PostListingPage extends StatefulWidget {
   final Map<String, dynamic>? existingListing;
   const PostListingPage({super.key, this.existingListing});
@@ -47,11 +54,15 @@ class PostListingPage extends StatefulWidget {
 }
 
 class _PostListingPageState extends State<PostListingPage> {
+  // ==========================================================================
+  // STATE VARIABLES
+  // ==========================================================================
+
   final _formKey = GlobalKey<FormState>();
   final _quantityController = TextEditingController();
   final _descriptionController = TextEditingController();
-  String _selectedCategory = 'Plastic';
 
+  String _selectedCategory = 'Plastic';
   bool _isLoading = false;
   bool _isLocationLoading = false;
   Position? _currentPosition;
@@ -69,6 +80,10 @@ class _PostListingPageState extends State<PostListingPage> {
   final ImagePicker _picker = ImagePicker();
 
   bool get isEditMode => widget.existingListing != null;
+
+  // ==========================================================================
+  // LIFECYCLE METHODS
+  // ==========================================================================
 
   @override
   void initState() {
@@ -104,6 +119,41 @@ class _PostListingPageState extends State<PostListingPage> {
     }
   }
 
+  @override
+  void dispose() {
+    _quantityController.dispose();
+    _descriptionController.dispose();
+    super.dispose();
+  }
+
+  // ==========================================================================
+  // HELPER FUNCTIONS
+  // ==========================================================================
+
+  /// Calculates distance between two GPS coordinates using Haversine formula
+  double _calculateDistance(
+    double lat1,
+    double lng1,
+    double lat2,
+    double lng2,
+  ) {
+    const double R = 6371; // Earth's radius in km
+    final dLat = (lat2 - lat1) * math.pi / 180;
+    final dLng = (lng2 - lng1) * math.pi / 180;
+    final a =
+        math.sin(dLat / 2) * math.sin(dLat / 2) +
+        math.cos(lat1 * math.pi / 180) *
+            math.cos(lat2 * math.pi / 180) *
+            math.sin(dLng / 2) *
+            math.sin(dLng / 2);
+    final c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a));
+    return R * c;
+  }
+
+  // ==========================================================================
+  // USER ACTIONS
+  // ==========================================================================
+
   Future<void> _pickImages() async {
     if (_imagesBase64.length >= 3) {
       TopSnackBar.show(
@@ -119,7 +169,6 @@ class _PostListingPageState extends State<PostListingPage> {
         imageQuality: 15,
         maxWidth: 500,
       );
-
       for (var image in images) {
         if (_imagesBase64.length >= 3) break;
         final bytes = await File(image.path).readAsBytes();
@@ -129,25 +178,23 @@ class _PostListingPageState extends State<PostListingPage> {
           (sum, img) => sum + base64Decode(img).length,
         );
         if (currentSize + bytes.length > 800 * 1024) {
-          if (mounted) {
+          if (mounted)
             TopSnackBar.show(
               context,
               message: 'Images too large. Please use fewer photos.',
               backgroundColor: Colors.red,
             );
-          }
           break;
         }
         setState(() => _imagesBase64.add(base64Encode(bytes)));
       }
     } catch (e) {
-      if (mounted) {
+      if (mounted)
         TopSnackBar.show(
           context,
           message: 'Error picking images: $e',
           backgroundColor: Colors.red,
         );
-      }
     }
   }
 
@@ -155,19 +202,17 @@ class _PostListingPageState extends State<PostListingPage> {
     setState(() => _isLocationLoading = true);
     try {
       LocationPermission permission = await Geolocator.checkPermission();
-      if (permission == LocationPermission.denied) {
+      if (permission == LocationPermission.denied)
         permission = await Geolocator.requestPermission();
-      }
 
       if (permission == LocationPermission.denied ||
           permission == LocationPermission.deniedForever) {
-        if (mounted) {
+        if (mounted)
           TopSnackBar.show(
             context,
             message: 'Enable location in settings ⚙️',
             backgroundColor: Colors.red,
           );
-        }
         setState(() => _isLocationLoading = false);
         return;
       }
@@ -180,7 +225,7 @@ class _PostListingPageState extends State<PostListingPage> {
         setState(() => _isLocationLoading = false);
         TopSnackBar.show(
           context,
-          message: 'Location captured 📍',
+          message: 'Location captured ',
           backgroundColor: Colors.green,
         );
       }
@@ -196,26 +241,6 @@ class _PostListingPageState extends State<PostListingPage> {
     }
   }
 
-  double _calculateDistance(
-    double lat1,
-    double lng1,
-    double lat2,
-    double lng2,
-  ) {
-    const double R = 6371;
-    final dLat = (lat2 - lat1) * math.pi / 180;
-    final dLng = (lng2 - lng1) * math.pi / 180;
-    final a =
-        math.sin(dLat / 2) * math.sin(dLat / 2) +
-        math.cos(lat1 * math.pi / 180) *
-            math.cos(lat2 * math.pi / 180) *
-            math.sin(dLng / 2) *
-            math.sin(dLng / 2);
-    final c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a));
-    return R * c;
-  }
-
-  // ✅ Send Push Notifications via OneSignal API with SECURE ENV VARS
   Future<void> _sendNearbyNotifications(String householdName) async {
     if (_currentPosition == null) return;
 
@@ -228,7 +253,6 @@ class _PostListingPageState extends State<PostListingPage> {
           .get();
 
       List<String> targetPlayerIds = [];
-
       for (var doc in collectorsSnapshot.docs) {
         final collectorData = doc.data();
         final homeLoc = collectorData['homeLocation'] as Map<String, dynamic>?;
@@ -241,7 +265,8 @@ class _PostListingPageState extends State<PostListingPage> {
             homeLoc['longitude'],
           );
 
-          if (distance <= 3.0) {
+          // ✅ STRICT 1KM RADIUS FOR NOTIFICATIONS
+          if (distance <= 1.0) {
             targetPlayerIds.add(collectorData['onesignalId']);
             debugPrint(
               '🔔 Collector ${collectorData['name']} is within ${distance.toStringAsFixed(1)}km.',
@@ -305,9 +330,7 @@ class _PostListingPageState extends State<PostListingPage> {
     }
 
     int totalSize = 0;
-    for (var img in _imagesBase64) {
-      totalSize += base64Decode(img).length;
-    }
+    for (var img in _imagesBase64) totalSize += base64Decode(img).length;
     if (totalSize > 950 * 1024) {
       TopSnackBar.show(
         context,
@@ -369,7 +392,6 @@ class _PostListingPageState extends State<PostListingPage> {
           'images': _imagesBase64,
         });
 
-        // ✅ Trigger automated notifications immediately after posting
         await _sendNearbyNotifications(householdName);
 
         if (mounted) {
@@ -408,12 +430,9 @@ class _PostListingPageState extends State<PostListingPage> {
     }
   }
 
-  @override
-  void dispose() {
-    _quantityController.dispose();
-    _descriptionController.dispose();
-    super.dispose();
-  }
+  // ==========================================================================
+  // UI BUILD METHOD
+  // ==========================================================================
 
   @override
   Widget build(BuildContext context) {
@@ -442,6 +461,7 @@ class _PostListingPageState extends State<PostListingPage> {
               ),
               const SizedBox(height: 16),
 
+              // Photos Section
               const Text(
                 'Photos (Max 3)',
                 style: TextStyle(
@@ -458,9 +478,8 @@ class _PostListingPageState extends State<PostListingPage> {
                   itemCount: _imagesBase64.length + 1,
                   itemBuilder: (context, index) {
                     if (index == _imagesBase64.length) {
-                      if (_imagesBase64.length >= 3) {
+                      if (_imagesBase64.length >= 3)
                         return const SizedBox.shrink();
-                      }
                       return GestureDetector(
                         onTap: _pickImages,
                         child: Container(
@@ -535,8 +554,9 @@ class _PostListingPageState extends State<PostListingPage> {
                   },
                 ),
               ),
-
               const SizedBox(height: 16),
+
+              // Category Dropdown
               DropdownButtonFormField<String>(
                 value: _selectedCategory,
                 decoration: const InputDecoration(
@@ -553,6 +573,8 @@ class _PostListingPageState extends State<PostListingPage> {
                 validator: (v) => v == null ? 'Required' : null,
               ),
               const SizedBox(height: 16),
+
+              // Quantity Input
               TextFormField(
                 controller: _quantityController,
                 decoration: const InputDecoration(
@@ -565,6 +587,8 @@ class _PostListingPageState extends State<PostListingPage> {
                 validator: (v) => v?.isEmpty == true ? 'Required' : null,
               ),
               const SizedBox(height: 16),
+
+              // Description Input
               TextFormField(
                 controller: _descriptionController,
                 maxLines: 3,
@@ -577,8 +601,9 @@ class _PostListingPageState extends State<PostListingPage> {
                 ),
                 validator: (v) => v?.isEmpty == true ? 'Required' : null,
               ),
-
               const SizedBox(height: 24),
+
+              // Location Section
               const Text(
                 'Pickup Location',
                 style: TextStyle(
