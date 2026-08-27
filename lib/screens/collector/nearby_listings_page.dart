@@ -1,8 +1,11 @@
 import 'dart:convert';
+import 'dart:math' as math; // ✅ ADDED for Haversine formula
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:geolocator/geolocator.dart'; // ✅ ADDED for GPS
 import 'package:intl/intl.dart';
 import '../widgets/kala_kal_app_bar.dart';
+import '../widgets/top_snackbar.dart'; // ✅ ADDED
 import 'place_bid_page.dart';
 
 class NearbyListingsPage extends StatefulWidget {
@@ -22,33 +25,77 @@ class _NearbyListingsPageState extends State<NearbyListingsPage> {
     _fetchActiveListings();
   }
 
+  // ✅ Haversine Formula to calculate exact distance in km
+  double _calculateDistance(double lat1, double lng1, double lat2, double lng2) {
+    const double R = 6371; // Earth's radius in km
+    final dLat = (lat2 - lat1) * math.pi / 180;
+    final dLng = (lng2 - lng1) * math.pi / 180;
+    final a = math.sin(dLat / 2) * math.sin(dLat / 2) +
+        math.cos(lat1 * math.pi / 180) *
+            math.cos(lat2 * math.pi / 180) *
+            math.sin(dLng / 2) *
+            math.sin(dLng / 2);
+    final c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a));
+    return R * c;
+  }
+
   Future<void> _fetchActiveListings() async {
     setState(() => isLoading = true);
     try {
+      // 1. Get the collector's current GPS location
+      Position currentPosition = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+      );
+
+      // 2. Fetch ALL active listings from Firestore
       final snapshot = await FirebaseFirestore.instance
           .collection('listings')
           .where('status', isEqualTo: 'Active')
           .orderBy('createdAt', descending: true)
           .get();
 
-      setState(() {
-        listings = snapshot.docs.map((doc) {
-          final data = doc.data();
-          data['id'] = doc.id;
-          return data;
-        }).toList();
-        isLoading = false;
-      });
+      // 3. Filter them locally based on the STRICT 1km rule
+      List<Map<String, dynamic>> nearbyListings = [];
+
+      for (var doc in snapshot.docs) {
+        final data = doc.data();
+        data['id'] = doc.id;
+
+        // Check if the listing has valid coordinates
+        if (data['location'] != null && 
+            data['location']['latitude'] != null && 
+            data['location']['longitude'] != null) {
+          
+          double distance = _calculateDistance(
+            currentPosition.latitude,
+            currentPosition.longitude,
+            data['location']['latitude'],
+            data['location']['longitude'],
+          );
+
+          // ✅ STRICT 1KM FILTER
+          if (distance <= 1.0) {
+            data['distance'] = distance; // Save distance to show on UI
+            nearbyListings.add(data);
+          }
+        }
+      }
+
+      if (mounted) {
+        setState(() {
+          listings = nearbyListings;
+          isLoading = false;
+        });
+      }
     } catch (e) {
       debugPrint('❌ Error fetching active listings: $e');
-      setState(() => isLoading = false);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to load listings: $e'),
-            backgroundColor: Colors.red,
-          ),
+        TopSnackBar.show(
+          context,
+          message: 'Failed to load listings: $e',
+          backgroundColor: Colors.red,
         );
+        setState(() => isLoading = false);
       }
     }
   }
@@ -77,7 +124,7 @@ class _NearbyListingsPageState extends State<NearbyListingsPage> {
                 controller: PageController(initialPage: initialIndex),
                 itemCount: images.length,
                 onPageChanged: (index) {
-                  setState(() {}); // Update counter
+                  setState(() {}); 
                 },
                 itemBuilder: (context, index) {
                   return InteractiveViewer(
@@ -88,7 +135,6 @@ class _NearbyListingsPageState extends State<NearbyListingsPage> {
                   );
                 },
               ),
-              // Image counter at bottom
               Positioned(
                 bottom: 20,
                 left: 0,
@@ -151,7 +197,6 @@ class _NearbyListingsPageState extends State<NearbyListingsPage> {
                   ),
                   const SizedBox(height: 16),
 
-                  // Clickable images in bottom sheet
                   if (listing['images'] != null &&
                       (listing['images'] as List).isNotEmpty)
                     SizedBox(
@@ -293,7 +338,6 @@ class _NearbyListingsPageState extends State<NearbyListingsPage> {
         title: 'Nearby Listings',
         showBackButton: true,
         actions: [
-          // ✅ Counter badge showing number of listings
           Container(
             margin: const EdgeInsets.only(right: 16),
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -327,12 +371,12 @@ class _NearbyListingsPageState extends State<NearbyListingsPage> {
                   Icon(Icons.search_off, size: 64, color: Colors.grey),
                   SizedBox(height: 16),
                   Text(
-                    'No active listings found.',
+                    'No listings within 1km.',
                     style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                   ),
                   SizedBox(height: 8),
                   Text(
-                    'Households haven\'t posted any scraps yet.',
+                    'Households haven\'t posted any scraps nearby yet.',
                     style: TextStyle(color: Colors.grey),
                   ),
                 ],
@@ -359,7 +403,6 @@ class _NearbyListingsPageState extends State<NearbyListingsPage> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // Clickable horizontal image list
                         if (item['images'] != null &&
                             (item['images'] as List).isNotEmpty)
                           SizedBox(
@@ -438,11 +481,13 @@ class _NearbyListingsPageState extends State<NearbyListingsPage> {
                                       ),
                                     ),
                                   ),
-                                  const Text(
-                                    'Active',
+                                  // ✅ Show exact distance here
+                                  Text(
+                                    '📍 ${(item['distance'] as double).toStringAsFixed(2)} km',
                                     style: TextStyle(
-                                      color: Colors.green,
+                                      color: Colors.green.shade700,
                                       fontWeight: FontWeight.bold,
+                                      fontSize: 12,
                                     ),
                                   ),
                                 ],

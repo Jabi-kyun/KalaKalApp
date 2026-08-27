@@ -113,14 +113,14 @@ flutter:
 flutter_launcher_icons:
   android: true
   ios: true
-  image_path: "assets/images/app_icon.png" # ✅ Matches your declared asset path
+  image_path: "assets/images/app_icon.png" 
   remove_alpha_ios: true
   background_color_ios: "#ffffff"
 
 # Native Splash Screen Configuration (Must be at the VERY END, unindented)
 flutter_native_splash:
   color: "#4CAF50"
-  image: assets/images/app_icon.png # ✅ Fixed path to match declared asset
+  image: assets/images/app_icon.png # 
   android: true
   android_gravity: fill
   ios: true
