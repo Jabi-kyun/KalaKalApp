@@ -1,6 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:map_launcher/map_launcher.dart';
 import '../widgets/kala_kal_app_bar.dart';
+import '../widgets/top_snackbar.dart'; // ✅ Added for consistent notifications
+
+// ============================================================================
+// WIDGET CLASS
+// ============================================================================
 
 class NavigateToPickupPage extends StatefulWidget {
   final String householdName;
@@ -21,21 +26,38 @@ class NavigateToPickupPage extends StatefulWidget {
 }
 
 class _NavigateToPickupPageState extends State<NavigateToPickupPage> {
+  // ==========================================================================
+  // 1. STATE VARIABLES
+  // These hold the loading state and the list of map apps found on the device
+  // ==========================================================================
+
   bool _isLoading = true;
   List<AvailableMap> _installedMaps = [];
+
+  // ==========================================================================
+  // 2. LIFECYCLE METHODS
+  // ==========================================================================
 
   @override
   void initState() {
     super.initState();
+    // Automatically detect which map apps are installed when the page opens
     _getInstalledMaps();
   }
 
+  // ==========================================================================
+  // 3. DATA FETCHING & USER ACTIONS
+  // ==========================================================================
+
+  /// THESE CODES ARE FOR DETECTING INSTALLED MAP APPLICATIONS.
+  /// It uses the map_launcher package to scan the device for available navigation
+  /// apps (like Google Maps or Waze) so the collector can choose their preferred one.
   Future<void> _getInstalledMaps() async {
     try {
       final maps = await MapLauncher.installedMaps;
       setState(() {
         _installedMaps = maps;
-        _isLoading = false;
+        _isLoading = false; // Hide loading spinner once apps are detected
       });
     } catch (e) {
       debugPrint('❌ Error fetching installed maps: $e');
@@ -43,6 +65,9 @@ class _NavigateToPickupPageState extends State<NavigateToPickupPage> {
     }
   }
 
+  /// THESE CODES ARE FOR LAUNCHING EXTERNAL NAVIGATION.
+  /// It takes the selected map app and passes the household's exact GPS coordinates
+  /// and name to open turn-by-turn directions directly in that external app.
   Future<void> _startNavigation(AvailableMap map) async {
     try {
       await map.showDirections(
@@ -51,18 +76,23 @@ class _NavigateToPickupPageState extends State<NavigateToPickupPage> {
       );
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to open navigation: $e'),
-            backgroundColor: Colors.red,
-          ),
+        TopSnackBar.show(
+          context,
+          message: 'Failed to open navigation: $e',
+          backgroundColor: Colors.red,
         );
       }
     }
   }
 
+  // ==========================================================================
+  // 4. UI BUILD METHOD
+  // This code renders the visual layout of the Navigation Selection screen
+  // ==========================================================================
+
   @override
   Widget build(BuildContext context) {
+    // Show a loading spinner while scanning for installed map apps
     if (_isLoading) {
       return const Scaffold(
         backgroundColor: Color(0xFFF2F7F3),
@@ -82,6 +112,7 @@ class _NavigateToPickupPageState extends State<NavigateToPickupPage> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
+              // Large Navigation Icon at the top
               Container(
                 padding: const EdgeInsets.all(24),
                 decoration: BoxDecoration(
@@ -95,6 +126,8 @@ class _NavigateToPickupPageState extends State<NavigateToPickupPage> {
                 ),
               ),
               const SizedBox(height: 32),
+
+              // Household Name and Address Display
               Text(
                 'Navigate to ${widget.householdName}',
                 style: const TextStyle(
@@ -113,6 +146,8 @@ class _NavigateToPickupPageState extends State<NavigateToPickupPage> {
                 ),
               ),
               const SizedBox(height: 48),
+
+              // ERROR STATE: Shown if no map apps are found on the device
               if (_installedMaps.isEmpty)
                 Container(
                   padding: const EdgeInsets.all(16),
@@ -137,6 +172,7 @@ class _NavigateToPickupPageState extends State<NavigateToPickupPage> {
                     ],
                   ),
                 )
+              // SUCCESS STATE: Dynamically generates buttons for every installed map app
               else
                 ..._installedMaps.map((map) {
                   final isGoogle = map.mapType == MapType.google;
@@ -146,7 +182,7 @@ class _NavigateToPickupPageState extends State<NavigateToPickupPage> {
                       width: double.infinity,
                       child: ElevatedButton.icon(
                         onPressed: () => _startNavigation(map),
-                        // ✅ FIXED: Use Image.asset instead of Image.memory
+                        // Uses the official icon provided by the map_launcher package
                         icon: Image.asset(map.icon, width: 24, height: 24),
                         label: Text(
                           'Open in ${map.mapName}',
@@ -155,6 +191,7 @@ class _NavigateToPickupPageState extends State<NavigateToPickupPage> {
                             fontWeight: FontWeight.bold,
                           ),
                         ),
+                        // Colors the button blue for Google Maps, green for others (like Waze)
                         style: ElevatedButton.styleFrom(
                           backgroundColor: isGoogle
                               ? Colors.blue
@@ -168,7 +205,7 @@ class _NavigateToPickupPageState extends State<NavigateToPickupPage> {
                       ),
                     ),
                   );
-                }).toList(),
+                }),
             ],
           ),
         ),

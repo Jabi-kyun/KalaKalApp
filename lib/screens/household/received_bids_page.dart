@@ -1,6 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../widgets/empty_state.dart';
+import '../widgets/top_snackbar.dart'; // ✅ Added for consistent notifications
+
+// ============================================================================
+// WIDGET CLASS
+// ============================================================================
 
 class ReceivedBidsPage extends StatefulWidget {
   final String listingId;
@@ -19,16 +24,34 @@ class ReceivedBidsPage extends StatefulWidget {
 }
 
 class _ReceivedBidsPageState extends State<ReceivedBidsPage> {
+  // ==========================================================================
+  // 1. STATE VARIABLES
+  // These hold the loading state, the list of bids, and the current listing status
+  // ==========================================================================
+
   bool isLoading = true;
   List<Map<String, dynamic>> bids = [];
   String listingStatus = 'Active';
 
+  // ==========================================================================
+  // 2. LIFECYCLE METHODS
+  // ==========================================================================
+
   @override
   void initState() {
     super.initState();
+    // Automatically fetch the bids for this specific listing when the page opens
     _fetchBids();
   }
 
+  // ==========================================================================
+  // 3. DATA FETCHING & USER ACTIONS
+  // ==========================================================================
+
+  /// THESE CODES ARE FOR FETCHING AND SORTING THE BIDS FOR A LISTING.
+  /// It fetches the specific listing document, checks if it's still 'Active',
+  /// extracts the 'bids' array, and sorts it in descending order by amount
+  /// so the highest bid always appears at the top (index 0).
   Future<void> _fetchBids() async {
     if (!mounted) return;
     setState(() => isLoading = true);
@@ -42,6 +65,7 @@ class _ReceivedBidsPageState extends State<ReceivedBidsPage> {
         final data = doc.data();
         listingStatus = data?['status'] ?? 'Active';
 
+        // If the listing is no longer Active (e.g., Booked or Finished), stop fetching bids
         if (listingStatus != 'Active') {
           setState(() => isLoading = false);
           return;
@@ -53,6 +77,8 @@ class _ReceivedBidsPageState extends State<ReceivedBidsPage> {
           bids = rawBids
               .map((e) => Map<String, dynamic>.from(e as Map))
               .toList();
+
+          // Sort bids by amount in descending order (Highest bid first)
           bids.sort(
             (a, b) => (b['amount'] as num).compareTo(a['amount'] as num),
           );
@@ -65,17 +91,20 @@ class _ReceivedBidsPageState extends State<ReceivedBidsPage> {
       debugPrint('❌ Error fetching bids: $e');
       if (mounted) {
         setState(() => isLoading = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to load bids: $e'),
-            backgroundColor: Colors.red,
-          ),
+        TopSnackBar.show(
+          context,
+          message: 'Failed to load bids: $e',
+          backgroundColor: Colors.red,
         );
       }
     }
   }
 
-  // explicitly marks losing bids as 'Rejected'
+  /// THESE CODES ARE FOR ACCEPTING A BID AND LOCKING THE TRANSACTION.
+  /// This is a critical function: it loops through ALL bids in the listing,
+  /// explicitly marks the chosen collector's bid as 'Accepted', and marks
+  /// all other competing bids as 'Rejected'. It then updates the main listing
+  /// status to 'Booked' to prevent any further changes or bids.
   Future<void> _acceptBid(Map<String, dynamic> bid) async {
     final confirm = await showDialog<bool>(
       context: context,
@@ -111,7 +140,7 @@ class _ReceivedBidsPageState extends State<ReceivedBidsPage> {
           List<dynamic> bidsList = List<dynamic>.from(data['bids'] ?? []);
           final winningCollectorUid = bid['collectorUid'];
 
-          // ✅ CRITICAL FIX: Loop through all bids to set winner and losers
+          // ✅ CRITICAL FIX: Loop through all bids to explicitly set winner and losers
           for (var i = 0; i < bidsList.length; i++) {
             if (bidsList[i]['collectorUid'] == winningCollectorUid) {
               bidsList[i]['status'] = 'Accepted'; // Winner
@@ -124,36 +153,40 @@ class _ReceivedBidsPageState extends State<ReceivedBidsPage> {
           await docRef.update({
             'status': 'Booked',
             'acceptedBid': bid,
-            'bids':
-                bidsList, // ✅ Save the updated array with 'Rejected' statuses
+            'bids': bidsList, // Save the updated array with 'Rejected' statuses
             'bookedAt': FieldValue.serverTimestamp(),
           });
 
           if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Bid accepted successfully! ✅'),
-                backgroundColor: Colors.green,
-              ),
+            TopSnackBar.show(
+              context,
+              message: 'Bid accepted successfully! ✅',
+              backgroundColor: Colors.green,
             );
-            Navigator.pop(context);
+            Navigator.pop(context); // Return to the previous screen
           }
         }
       } catch (e) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Error accepting bid: $e'),
-              backgroundColor: Colors.red,
-            ),
+          TopSnackBar.show(
+            context,
+            message: 'Error accepting bid: $e',
+            backgroundColor: Colors.red,
           );
         }
       }
     }
   }
 
+  // ==========================================================================
+  // 4. UI BUILD METHOD
+  // This code renders the visual layout of the Received Bids page
+  // ==========================================================================
+
   @override
   Widget build(BuildContext context) {
+    // EDGE CASE: If the listing is no longer 'Active' (e.g., already booked or finished),
+    // show a static informational screen instead of the bidding interface.
     if (!isLoading && listingStatus != 'Active') {
       return Scaffold(
         backgroundColor: const Color(0xFFF2F7F3),
@@ -222,6 +255,7 @@ class _ReceivedBidsPageState extends State<ReceivedBidsPage> {
       );
     }
 
+    // MAIN UI: The active bidding interface
     return Scaffold(
       backgroundColor: const Color(0xFFF2F7F3),
       appBar: AppBar(
@@ -249,13 +283,16 @@ class _ReceivedBidsPageState extends State<ReceivedBidsPage> {
         ),
       ),
       body: isLoading
+          // Show loading spinner while fetching data
           ? const Center(child: CircularProgressIndicator(color: Colors.green))
+          // Show empty state if no collectors have placed a bid yet
           : bids.isEmpty
           ? const EmptyState(
               icon: Icons.monetization_on_outlined,
               title: 'No bids yet.',
               subtitle: 'Collectors are reviewing your listing...',
             )
+          // Show the scrollable list of bids with pull-to-refresh
           : RefreshIndicator(
               onRefresh: _fetchBids,
               child: ListView.builder(
@@ -263,19 +300,26 @@ class _ReceivedBidsPageState extends State<ReceivedBidsPage> {
                 itemCount: bids.length,
                 itemBuilder: (context, index) {
                   final bid = bids[index];
+                  // Because the list is sorted by amount, index 0 is always the highest bid
                   final isHighest = index == 0;
 
                   return Card(
-                    elevation: isHighest ? 4 : 2,
+                    elevation: isHighest
+                        ? 4
+                        : 2, // Higher elevation for the highest bid
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    color: isHighest ? const Color(0xFFE8F5E9) : Colors.white,
+                    color: isHighest
+                        ? const Color(0xFFE8F5E9)
+                        : Colors
+                              .white, // Light green background for highest bid
                     child: Padding(
                       padding: const EdgeInsets.all(16),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
+                          // Top Row: Collector Info and Bid Amount
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
@@ -308,6 +352,7 @@ class _ReceivedBidsPageState extends State<ReceivedBidsPage> {
                                               fontSize: 16,
                                             ),
                                           ),
+                                          // Show collector's rating if available
                                           if ((bid['rating'] ?? 0) > 0)
                                             Row(
                                               children: [
@@ -344,6 +389,8 @@ class _ReceivedBidsPageState extends State<ReceivedBidsPage> {
                             ],
                           ),
                           const SizedBox(height: 12),
+
+                          // Bottom Row: "Highest Bid" Badge and Accept Button
                           Row(
                             mainAxisAlignment: MainAxisAlignment.end,
                             children: [

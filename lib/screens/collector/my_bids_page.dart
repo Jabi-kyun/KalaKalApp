@@ -5,7 +5,12 @@ import 'package:intl/intl.dart';
 import '../widgets/kala_kal_app_bar.dart';
 import '../widgets/status_chip.dart';
 import '../widgets/empty_state.dart';
+import '../widgets/top_snackbar.dart'; // ✅ Added for consistent notifications
 import 'navigate_to_pickup_page.dart';
+
+// ============================================================================
+// WIDGET CLASS
+// ============================================================================
 
 class MyBidsPage extends StatefulWidget {
   const MyBidsPage({super.key});
@@ -15,21 +20,41 @@ class MyBidsPage extends StatefulWidget {
 }
 
 class _MyBidsPageState extends State<MyBidsPage> {
+  // ==========================================================================
+  // 1. STATE VARIABLES
+  // These hold the loading state and the list of bids placed by this collector
+  // ==========================================================================
+
   bool isLoading = true;
   List<Map<String, dynamic>> myBids = [];
+
+  // ==========================================================================
+  // 2. LIFECYCLE METHODS
+  // ==========================================================================
 
   @override
   void initState() {
     super.initState();
+    // Automatically fetch the collector's bids as soon as the page opens
     _fetchMyBids();
   }
 
+  // ==========================================================================
+  // 3. DATA FETCHING & USER ACTIONS
+  // ==========================================================================
+
+  /// THESE CODES ARE FOR FETCHING AND ORGANIZING THE COLLECTOR'S BIDS.
+  /// Since Firestore doesn't easily allow querying nested arrays (like bids.collectorUid),
+  /// this function fetches all Active/Booked listings, loops through them locally in Dart
+  /// to find where this specific collector placed a bid, extracts their bid details,
+  /// and sorts the final list by date (newest first).
   Future<void> _fetchMyBids() async {
     setState(() => isLoading = true);
     try {
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) return;
 
+      // 1. Fetch all listings that are currently Active or Booked
       final snapshot = await FirebaseFirestore.instance
           .collection('listings')
           .where('status', whereIn: ['Active', 'Booked'])
@@ -37,16 +62,21 @@ class _MyBidsPageState extends State<MyBidsPage> {
 
       List<Map<String, dynamic>> tempBids = [];
 
+      // 2. Loop through listings to find this collector's bids
       for (var doc in snapshot.docs) {
         final data = doc.data();
         data['id'] = doc.id;
         final bidsList = (data['bids'] as List<dynamic>?);
+
         if (bidsList != null) {
+          // Find the specific bid object belonging to this collector
           final myBid = bidsList.firstWhere(
             (bid) => (bid as Map)['collectorUid'] == user.uid,
             orElse: () => null,
           );
+
           if (myBid != null) {
+            // Combine listing data with the collector's specific bid details
             tempBids.add({
               ...data,
               'myBidAmount': myBid['amount'],
@@ -57,6 +87,7 @@ class _MyBidsPageState extends State<MyBidsPage> {
         }
       }
 
+      // 3. Sort the bids by date (newest first)
       tempBids.sort((a, b) {
         final dateA = a['bidAt'] is Timestamp
             ? (a['bidAt'] as Timestamp).toDate()
@@ -77,16 +108,19 @@ class _MyBidsPageState extends State<MyBidsPage> {
       debugPrint('❌ Error fetching my bids: $e');
       if (mounted) {
         setState(() => isLoading = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to load bids: $e'),
-            backgroundColor: Colors.red,
-          ),
+        TopSnackBar.show(
+          context,
+          message: 'Failed to load bids: $e',
+          backgroundColor: Colors.red,
         );
       }
     }
   }
 
+  /// THESE CODES ARE FOR CONFIRMING A PICKUP AND COMPLETING THE TRANSACTION.
+  /// It shows a confirmation dialog, updates the specific bid status to 'Finished'
+  /// inside the bids array, changes the overall listing status to 'Finished',
+  /// records the completion timestamp, and refreshes the UI.
   Future<void> _confirmPickup(String listingId) async {
     final confirm = await showDialog<bool>(
       context: context,
@@ -124,6 +158,7 @@ class _MyBidsPageState extends State<MyBidsPage> {
           final data = doc.data()!;
           List<dynamic> bidsList = List<dynamic>.from(data['bids'] ?? []);
 
+          // Update only THIS collector's bid status to 'Finished'
           for (var i = 0; i < bidsList.length; i++) {
             if (bidsList[i]['collectorUid'] == user.uid) {
               bidsList[i]['status'] = 'Finished';
@@ -131,6 +166,7 @@ class _MyBidsPageState extends State<MyBidsPage> {
             }
           }
 
+          // Save the updated bids array and mark the entire listing as Finished
           await docRef.update({
             'status': 'Finished',
             'completedAt': FieldValue.serverTimestamp(),
@@ -138,28 +174,28 @@ class _MyBidsPageState extends State<MyBidsPage> {
           });
 
           if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Pickup confirmed! Transaction completed. ✅'),
-                backgroundColor: Colors.green,
-              ),
+            TopSnackBar.show(
+              context,
+              message: 'Pickup confirmed! Transaction completed. ✅',
+              backgroundColor: Colors.green,
             );
-            _fetchMyBids();
+            _fetchMyBids(); // Refresh the list to reflect the change
           }
         }
       } catch (e) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Error confirming pickup: $e'),
-              backgroundColor: Colors.red,
-            ),
+          TopSnackBar.show(
+            context,
+            message: 'Error confirming pickup: $e',
+            backgroundColor: Colors.red,
           );
         }
       }
     }
   }
 
+  /// HELPER FUNCTION TO ASSIGN COLORS BASED ON BID/LISTING STATUS.
+  /// Returns a specific color for Pending, Accepted, Booked, Finished, or Rejected states.
   Color _getStatusColor(String status) {
     switch (status.toLowerCase()) {
       case 'pending':
@@ -177,19 +213,27 @@ class _MyBidsPageState extends State<MyBidsPage> {
     }
   }
 
+  // ==========================================================================
+  // 4. UI BUILD METHOD
+  // This code renders the visual layout of the Collector's My Bids page
+  // ==========================================================================
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF2F7F3),
       appBar: const KalaKalAppBar(title: 'My Bids', showBackButton: true),
       body: isLoading
+          // Show loading spinner while fetching data
           ? const Center(child: CircularProgressIndicator(color: Colors.green))
+          // Show empty state if no bids have been placed yet
           : myBids.isEmpty
           ? const EmptyState(
               icon: Icons.gavel,
               title: 'No bids placed yet.',
               subtitle: 'Browse nearby listings and make your first offer!',
             )
+          // Show the scrollable list of bids with pull-to-refresh
           : RefreshIndicator(
               onRefresh: _fetchMyBids,
               child: ListView.builder(
@@ -199,6 +243,8 @@ class _MyBidsPageState extends State<MyBidsPage> {
                   final item = myBids[index];
                   final listingStatus = item['status'] ?? 'Active';
                   final bidStatus = item['myBidStatus'] ?? 'Pending';
+
+                  // Format the bid timestamp into a readable date string
                   final date = item['bidAt'] != null
                       ? DateFormat(
                           'MMM dd, yyyy',
@@ -215,6 +261,7 @@ class _MyBidsPageState extends State<MyBidsPage> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
+                          // Top Row: Category and Listing Status Chips
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
@@ -229,6 +276,8 @@ class _MyBidsPageState extends State<MyBidsPage> {
                             ],
                           ),
                           const SizedBox(height: 12),
+
+                          // Household Info
                           Text(
                             item['householdName'] ?? 'Anonymous Household',
                             style: const TextStyle(
@@ -254,6 +303,8 @@ class _MyBidsPageState extends State<MyBidsPage> {
                             ),
                           ),
                           const SizedBox(height: 16),
+
+                          // Bid Details Box (Offer Amount & Current Status)
                           Container(
                             padding: const EdgeInsets.all(12),
                             decoration: BoxDecoration(
@@ -309,7 +360,7 @@ class _MyBidsPageState extends State<MyBidsPage> {
                           ),
                           const SizedBox(height: 12),
 
-                          // Only show buttons if THIS collector's bid was the one Accepted
+                          // ACTION BUTTONS: Only show if THIS collector won the bid and location exists
                           if (listingStatus == 'Booked' &&
                               item['myBidStatus'] == 'Accepted' &&
                               item['location'] != null) ...[
@@ -389,7 +440,7 @@ class _MyBidsPageState extends State<MyBidsPage> {
                             ),
                           ],
 
-                          //will Show a polite message if the bid was rejected
+                          // REJECTION MESSAGE: Shows politely if the bid was not accepted
                           if (item['myBidStatus'] == 'Rejected')
                             Container(
                               width: double.infinity,
@@ -411,6 +462,7 @@ class _MyBidsPageState extends State<MyBidsPage> {
                             ),
 
                           const SizedBox(height: 8),
+                          // Date the bid was placed
                           Text(
                             date,
                             style: const TextStyle(

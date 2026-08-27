@@ -5,6 +5,10 @@ import '../widgets/kala_kal_app_bar.dart';
 import '../widgets/empty_state.dart';
 import 'received_bids_page.dart';
 
+// ============================================================================
+// WIDGET CLASS
+// ============================================================================
+
 class MyActiveListingsPage extends StatefulWidget {
   const MyActiveListingsPage({super.key});
 
@@ -13,22 +17,40 @@ class MyActiveListingsPage extends StatefulWidget {
 }
 
 class _MyActiveListingsPageState extends State<MyActiveListingsPage> {
+  // ==========================================================================
+  // 1. STATE VARIABLES
+  // These hold the loading state and the list of the household's active listings
+  // ==========================================================================
+
   bool isLoading = true;
   List<Map<String, dynamic>> activeListings = [];
+
+  // ==========================================================================
+  // 2. LIFECYCLE METHODS
+  // ==========================================================================
 
   @override
   void initState() {
     super.initState();
+    // Automatically fetch active listings as soon as the page opens
     _fetchActiveListings();
   }
 
+  // ==========================================================================
+  // 3. DATA FETCHING FUNCTIONS
+  // ==========================================================================
+
+  /// THESE CODES ARE FOR FETCHING THE HOUSEHOLD'S ACTIVE LISTINGS.
+  /// It queries the Firestore 'listings' collection, strictly filtering for
+  /// documents where the 'householdUid' matches the current user AND the
+  /// 'status' is exactly 'Active'. It orders them by creation date (newest first)
+  /// so the household can easily tap into them to view received bids.
   Future<void> _fetchActiveListings() async {
     setState(() => isLoading = true);
     try {
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) return;
 
-      //  Only gets Active listings for this specific household
       final snapshot = await FirebaseFirestore.instance
           .collection('listings')
           .where('householdUid', isEqualTo: user.uid)
@@ -39,10 +61,10 @@ class _MyActiveListingsPageState extends State<MyActiveListingsPage> {
       setState(() {
         activeListings = snapshot.docs.map((doc) {
           final data = doc.data();
-          data['id'] = doc.id;
+          data['id'] = doc.id; // Attach document ID for navigation
           return data;
         }).toList();
-        isLoading = false;
+        isLoading = false; // Hide loading spinner
       });
     } catch (e) {
       debugPrint('❌ Error fetching active listings: $e');
@@ -50,19 +72,27 @@ class _MyActiveListingsPageState extends State<MyActiveListingsPage> {
     }
   }
 
+  // ==========================================================================
+  // 4. UI BUILD METHOD
+  // This code renders the visual layout of the Active Listings page
+  // ==========================================================================
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF2F7F3),
       appBar: const KalaKalAppBar(title: 'Received Bids', showBackButton: true),
       body: isLoading
+          // Show loading spinner while fetching data
           ? const Center(child: CircularProgressIndicator(color: Colors.green))
+          // Show empty state if the household has no active listings
           : activeListings.isEmpty
           ? const EmptyState(
               icon: Icons.monetization_on_outlined,
               title: 'No active listings.',
               subtitle: 'Post a scrap to start receiving bids!',
             )
+          // Show the scrollable list of active listings with pull-to-refresh
           : RefreshIndicator(
               onRefresh: _fetchActiveListings,
               child: ListView.builder(
@@ -70,6 +100,7 @@ class _MyActiveListingsPageState extends State<MyActiveListingsPage> {
                 itemCount: activeListings.length,
                 itemBuilder: (context, index) {
                   final item = activeListings[index];
+
                   return Card(
                     elevation: 2,
                     shape: RoundedRectangleBorder(
@@ -102,6 +133,7 @@ class _MyActiveListingsPageState extends State<MyActiveListingsPage> {
                         size: 16,
                         color: Colors.grey,
                       ),
+                      // Tapping the card navigates to the Received Bids page for this specific listing
                       onTap: () {
                         Navigator.push(
                           context,

@@ -7,8 +7,13 @@ import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import '../widgets/kala_kal_app_bar.dart';
 import '../widgets/primary_button.dart';
+import '../widgets/top_snackbar.dart'; // ✅ Added for consistent notifications
 
-// Comprehensive Legazpi City Barangays for 3km Notification Radius
+// ============================================================================
+// CONSTANTS & DATA
+// ============================================================================
+
+// Comprehensive Legazpi City Barangays with GPS coordinates for the Notification Radius
 final List<Map<String, dynamic>> legazpiBarangays = [
   {'name': 'Select a Barangay', 'lat': 0.0, 'lng': 0.0},
   // Poblacion / City Proper
@@ -39,6 +44,10 @@ final List<Map<String, dynamic>> legazpiBarangays = [
   {'name': 'Taysan', 'lat': 13.1620, 'lng': 123.7300},
 ];
 
+// ============================================================================
+// WIDGET CLASS
+// ============================================================================
+
 class EditProfilePage extends StatefulWidget {
   const EditProfilePage({super.key});
 
@@ -47,27 +56,52 @@ class EditProfilePage extends StatefulWidget {
 }
 
 class _EditProfilePageState extends State<EditProfilePage> {
+  // ==========================================================================
+  // 1. STATE VARIABLES
+  // These hold the form controllers, loading states, and profile data
+  // ==========================================================================
+
   final _formKey = GlobalKey<FormState>();
 
-  // Controllers
   final _nameController = TextEditingController();
   final _phoneController = TextEditingController();
   final _addressController = TextEditingController();
   final _birthdayController = TextEditingController();
 
-  // State variables
   bool _isLoading = false;
   DateTime? _selectedDate;
   File? _imageFile;
   String? _currentProfileBase64;
-  String? _selectedArea; 
+  String? _selectedArea;
+
+  // ==========================================================================
+  // 2. LIFECYCLE METHODS
+  // ==========================================================================
 
   @override
   void initState() {
     super.initState();
+    // Automatically load the user's existing profile data when the page opens
     _loadCurrentProfile();
   }
 
+  @override
+  void dispose() {
+    // Cleans up memory by disposing text controllers when the page is closed
+    _nameController.dispose();
+    _phoneController.dispose();
+    _addressController.dispose();
+    _birthdayController.dispose();
+    super.dispose();
+  }
+
+  // ==========================================================================
+  // 3. DATA FETCHING & HELPER FUNCTIONS
+  // ==========================================================================
+
+  /// THESE CODES ARE FOR LOADING THE EXISTING PROFILE DATA.
+  /// It fetches the current user's document from Firestore and pre-fills the
+  /// text fields, date picker, profile picture, and selected notification area.
   Future<void> _loadCurrentProfile() async {
     try {
       final user = FirebaseAuth.instance.currentUser;
@@ -88,11 +122,14 @@ class _EditProfilePageState extends State<EditProfilePage> {
 
           if (data['birthday'] != null) {
             _selectedDate = (data['birthday'] as Timestamp).toDate();
-            _birthdayController.text = DateFormat('MM/dd/yyyy').format(_selectedDate!);
+            _birthdayController.text = DateFormat(
+              'MM/dd/yyyy',
+            ).format(_selectedDate!);
           }
 
-          // Load existing Legazpi area if saved
-          if (data['homeLocation'] != null && data['homeLocation']['areaName'] != null) {
+          // Load existing Legazpi area if it was previously saved
+          if (data['homeLocation'] != null &&
+              data['homeLocation']['areaName'] != null) {
             _selectedArea = data['homeLocation']['areaName'];
           }
         });
@@ -102,6 +139,9 @@ class _EditProfilePageState extends State<EditProfilePage> {
     }
   }
 
+  /// THESE CODES ARE FOR PICKING A NEW PROFILE PICTURE.
+  /// It opens the device's image gallery, compresses the image (quality: 50),
+  /// and saves the file path to be converted to Base64 later.
   Future<void> _pickImage() async {
     final picker = ImagePicker();
     final pickedFile = await picker.pickImage(
@@ -116,6 +156,8 @@ class _EditProfilePageState extends State<EditProfilePage> {
     }
   }
 
+  /// THESE CODES ARE FOR CONVERTING THE IMAGE TO BASE64.
+  /// Firestore requires images to be stored as strings (Base64) for this implementation.
   Future<String?> _convertImageToBase64() async {
     if (_imageFile == null) return _currentProfileBase64;
     try {
@@ -127,6 +169,8 @@ class _EditProfilePageState extends State<EditProfilePage> {
     }
   }
 
+  /// THESE CODES ARE FOR SELECTING A BIRTHDAY.
+  /// It opens a date picker dialog and formats the selected date to MM/dd/yyyy.
   Future<void> _selectBirthday() async {
     final DateTime? picked = await showDatePicker(
       context: context,
@@ -150,6 +194,13 @@ class _EditProfilePageState extends State<EditProfilePage> {
     }
   }
 
+  // ==========================================================================
+  // 4. USER ACTIONS
+  // ==========================================================================
+
+  /// THESE CODES ARE FOR SAVING THE UPDATED PROFILE TO FIRESTORE.
+  /// It validates the form, converts the new image (if any), maps the selected
+  /// barangay to its GPS coordinates, and updates the user's document.
   Future<void> _saveProfile() async {
     if (!_formKey.currentState!.validate() || _isLoading) return;
 
@@ -160,10 +211,12 @@ class _EditProfilePageState extends State<EditProfilePage> {
 
       final profileBase64 = await _convertImageToBase64();
 
-      // Get coordinates from selected area
+      // Get GPS coordinates from the selected area dropdown
       Map<String, dynamic>? homeLocationMap;
       if (_selectedArea != null && _selectedArea != 'Select a Barangay') {
-        final areaData = legazpiBarangays.firstWhere((a) => a['name'] == _selectedArea);
+        final areaData = legazpiBarangays.firstWhere(
+          (a) => a['name'] == _selectedArea,
+        );
         homeLocationMap = {
           'latitude': areaData['lat'],
           'longitude': areaData['lng'],
@@ -171,56 +224,53 @@ class _EditProfilePageState extends State<EditProfilePage> {
         };
       }
 
-      await FirebaseFirestore.instance
-          .collection('users')
-          .doc(user.uid)
-          .update({
-            'name': _nameController.text.trim(),
-            'phone': _phoneController.text.trim(),
-            'address': _addressController.text.trim(),
-            'birthday': _selectedDate != null
-                ? Timestamp.fromDate(_selectedDate!)
-                : FieldValue.delete(),
-            'profilePic': ?profileBase64,
-            
-            // ✅ Save or delete homeLocation based on dropdown selection
-            if (homeLocationMap != null) 
-              'homeLocation': homeLocationMap 
-            else 
-              'homeLocation': FieldValue.delete(),
-              
-            'updatedAt': FieldValue.serverTimestamp(),
-          });
+      // Update the user document in Firestore
+      await FirebaseFirestore.instance.collection('users').doc(user.uid).update(
+        {
+          'name': _nameController.text.trim(),
+          'phone': _phoneController.text.trim(),
+          'address': _addressController.text.trim(),
+          'birthday': _selectedDate != null
+              ? Timestamp.fromDate(_selectedDate!)
+              : FieldValue.delete(),
+
+          // ✅ Fixed syntax: Only update profilePic if a new one was selected
+          if (profileBase64 != null) 'profilePic': profileBase64,
+
+          // ✅ Save or delete homeLocation based on dropdown selection
+          if (homeLocationMap != null)
+            'homeLocation': homeLocationMap
+          else
+            'homeLocation': FieldValue.delete(),
+
+          'updatedAt': FieldValue.serverTimestamp(),
+        },
+      );
 
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Profile updated successfully! ✅'),
-          backgroundColor: Colors.green,
-        ),
+
+      TopSnackBar.show(
+        context,
+        message: 'Profile updated successfully! ✅',
+        backgroundColor: Colors.green,
       );
       Navigator.pop(context);
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error updating profile: ${e.toString()}'),
-          backgroundColor: Colors.red,
-        ),
+      TopSnackBar.show(
+        context,
+        message: 'Error updating profile: ${e.toString()}',
+        backgroundColor: Colors.red,
       );
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
   }
 
-  @override
-  void dispose() {
-    _nameController.dispose();
-    _phoneController.dispose();
-    _addressController.dispose();
-    _birthdayController.dispose();
-    super.dispose();
-  }
+  // ==========================================================================
+  // 5. UI BUILD METHOD
+  // This code renders the visual layout of the Household Profile Edit screen
+  // ==========================================================================
 
   @override
   Widget build(BuildContext context) {
@@ -234,7 +284,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Profile Picture Section
+              // --- Profile Picture Section ---
               Center(
                 child: Stack(
                   children: [
@@ -244,7 +294,9 @@ class _EditProfilePageState extends State<EditProfilePage> {
                       backgroundImage: _imageFile != null
                           ? FileImage(_imageFile!)
                           : (_currentProfileBase64 != null
-                                ? MemoryImage(base64Decode(_currentProfileBase64!))
+                                ? MemoryImage(
+                                    base64Decode(_currentProfileBase64!),
+                                  )
                                 : null),
                       child: _imageFile == null && _currentProfileBase64 == null
                           ? Text(
@@ -271,7 +323,11 @@ class _EditProfilePageState extends State<EditProfilePage> {
                             color: Colors.green,
                             shape: BoxShape.circle,
                           ),
-                          child: const Icon(Icons.camera_alt, color: Colors.white, size: 20),
+                          child: const Icon(
+                            Icons.camera_alt,
+                            color: Colors.white,
+                            size: 20,
+                          ),
                         ),
                       ),
                     ),
@@ -280,27 +336,40 @@ class _EditProfilePageState extends State<EditProfilePage> {
               ),
               const SizedBox(height: 30),
 
-              // Name
-              const Text('Full Name', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+              // --- Name Field ---
+              const Text(
+                'Full Name',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+              ),
               const SizedBox(height: 8),
               TextFormField(
                 controller: _nameController,
                 decoration: InputDecoration(
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                   prefixIcon: Icon(Icons.person_outline, color: Colors.green),
                   filled: true,
                   fillColor: Colors.white,
                 ),
-                validator: (value) => (value == null || value.trim().isEmpty) ? 'Name is required' : null,
+                validator: (value) => (value == null || value.trim().isEmpty)
+                    ? 'Name is required'
+                    : null,
               ),
               const SizedBox(height: 16),
 
-              // Email (Read Only)
-              const Text('Email', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+              // --- Email Field (Read Only) ---
+              const Text(
+                'Email',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+              ),
               const SizedBox(height: 8),
               Container(
                 width: double.infinity,
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 16,
+                ),
                 decoration: BoxDecoration(
                   color: Colors.grey.shade100,
                   borderRadius: BorderRadius.circular(12),
@@ -320,64 +389,92 @@ class _EditProfilePageState extends State<EditProfilePage> {
                 ),
               ),
               const SizedBox(height: 8),
-              Text('Email cannot be changed.', style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+              Text(
+                'Email cannot be changed.',
+                style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+              ),
               const SizedBox(height: 16),
 
-              // Phone Number
-              const Text('Contact Number', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+              // --- Phone Number Field ---
+              const Text(
+                'Contact Number',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+              ),
               const SizedBox(height: 8),
               TextFormField(
                 controller: _phoneController,
                 keyboardType: TextInputType.phone,
                 decoration: InputDecoration(
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                   prefixIcon: Icon(Icons.phone, color: Colors.green),
                   filled: true,
                   fillColor: Colors.white,
                 ),
-                validator: (value) => (value == null || value.trim().isEmpty) ? 'Phone is required' : null,
+                validator: (value) => (value == null || value.trim().isEmpty)
+                    ? 'Phone is required'
+                    : null,
               ),
               const SizedBox(height: 16),
 
-              // Birthday
-              const Text('Birthday', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+              // --- Birthday Field ---
+              const Text(
+                'Birthday',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+              ),
               const SizedBox(height: 8),
               TextFormField(
                 controller: _birthdayController,
                 readOnly: true,
                 onTap: _selectBirthday,
                 decoration: InputDecoration(
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                   prefixIcon: Icon(Icons.cake, color: Colors.green),
                   suffixIcon: Icon(Icons.calendar_today, color: Colors.green),
                   filled: true,
                   fillColor: Colors.white,
                 ),
-                validator: (value) => (value == null || value.isEmpty) ? 'Birthday is required' : null,
+                validator: (value) => (value == null || value.isEmpty)
+                    ? 'Birthday is required'
+                    : null,
               ),
               const SizedBox(height: 16),
 
-              // Address (Text)
-              const Text('Complete Address', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+              // --- Address Field ---
+              const Text(
+                'Complete Address',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+              ),
               const SizedBox(height: 8),
               TextFormField(
                 controller: _addressController,
                 maxLines: 2,
                 decoration: InputDecoration(
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                   prefixIcon: Icon(Icons.home, color: Colors.green),
                   alignLabelWithHint: true,
                   filled: true,
                   fillColor: Colors.white,
                 ),
-                validator: (value) => (value == null || value.trim().isEmpty) ? 'Address is required' : null,
+                validator: (value) => (value == null || value.trim().isEmpty)
+                    ? 'Address is required'
+                    : null,
               ),
               const SizedBox(height: 16),
 
-              const Text('Set Notification Area (Legazpi)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+              // --- Notification Area Dropdown ---
+              const Text(
+                'Set Notification Area (Legazpi)',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+              ),
               const SizedBox(height: 8),
               Text(
-                'Collectors within 3km of this area will be notified when you post.',
+                'Collectors within 1km of this area will be notified when you post.', // ✅ Updated to match 1km logic
                 style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
               ),
               const SizedBox(height: 8),
@@ -385,7 +482,9 @@ class _EditProfilePageState extends State<EditProfilePage> {
                 initialValue: _selectedArea,
                 decoration: InputDecoration(
                   labelText: 'Select Barangay / Area',
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                   prefixIcon: Icon(Icons.location_city, color: Colors.green),
                   filled: true,
                   fillColor: Colors.white,
@@ -397,12 +496,14 @@ class _EditProfilePageState extends State<EditProfilePage> {
                   );
                 }).toList(),
                 onChanged: (value) => setState(() => _selectedArea = value),
-                validator: (v) => v == null || v == 'Select a Barangay' ? 'Please select a barangay' : null,
+                validator: (v) => v == null || v == 'Select a Barangay'
+                    ? 'Please select a barangay'
+                    : null,
               ),
 
               const SizedBox(height: 30),
 
-              // Save Button
+              // --- Save Button ---
               PrimaryButton(
                 text: _isLoading ? 'Saving...' : 'SAVE CHANGES',
                 onPressed: _saveProfile,

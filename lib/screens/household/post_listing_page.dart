@@ -17,6 +17,8 @@ import '../widgets/primary_button.dart';
 // CONSTANTS & DATA
 // ============================================================================
 
+// List of Legazpi City Barangays with their exact GPS coordinates
+// (Used for the dropdown in the household profile settings)
 final List<Map<String, dynamic>> legazpiBarangays = [
   {'name': 'Albay District', 'lat': 13.1485, 'lng': 123.7360},
   {'name': 'EM\'s / Rizal Street', 'lat': 13.1450, 'lng': 123.7320},
@@ -55,18 +57,21 @@ class PostListingPage extends StatefulWidget {
 
 class _PostListingPageState extends State<PostListingPage> {
   // ==========================================================================
-  // STATE VARIABLES
+  // 1. STATE VARIABLES
+  // These hold the current data of the form, loading states, and location
   // ==========================================================================
 
-  final _formKey = GlobalKey<FormState>();
+  final _formKey = GlobalKey<FormState>(); // Validates the form inputs
   final _quantityController = TextEditingController();
   final _descriptionController = TextEditingController();
 
   String _selectedCategory = 'Plastic';
-  bool _isLoading = false;
-  bool _isLocationLoading = false;
-  Position? _currentPosition;
-  List<String> _imagesBase64 = [];
+  bool _isLoading = false; // Shows loading spinner on the submit button
+  bool _isLocationLoading =
+      false; // Shows loading spinner on the location button
+  Position? _currentPosition; // Stores the captured GPS coordinates
+  List<String> _imagesBase64 =
+      []; // Stores up to 3 images converted to text strings
 
   final List<String> _categories = [
     'Plastic',
@@ -79,15 +84,17 @@ class _PostListingPageState extends State<PostListingPage> {
   ];
   final ImagePicker _picker = ImagePicker();
 
+  // Checks if the user is editing an existing post or creating a new one
   bool get isEditMode => widget.existingListing != null;
 
   // ==========================================================================
-  // LIFECYCLE METHODS
+  // 2. LIFECYCLE METHODS
   // ==========================================================================
 
   @override
   void initState() {
     super.initState();
+    // If editing, pre-fill the form with the existing listing's data
     if (isEditMode) {
       _selectedCategory = widget.existingListing!['category'] ?? 'Plastic';
       _quantityController.text = widget.existingListing!['quantity'] ?? '';
@@ -100,6 +107,7 @@ class _PostListingPageState extends State<PostListingPage> {
         _imagesBase64 = [widget.existingListing!['image']];
       }
 
+      // Load existing GPS coordinates if in edit mode
       if (widget.existingListing!['location'] != null &&
           widget.existingListing!['location']['latitude'] != null) {
         final loc = widget.existingListing!['location'];
@@ -121,16 +129,19 @@ class _PostListingPageState extends State<PostListingPage> {
 
   @override
   void dispose() {
+    // Cleans up memory by disposing controllers when the page is closed
     _quantityController.dispose();
     _descriptionController.dispose();
     super.dispose();
   }
 
   // ==========================================================================
-  // HELPER FUNCTIONS
+  // 3. HELPER FUNCTIONS
   // ==========================================================================
 
-  /// Calculates distance between two GPS coordinates using Haversine formula
+  /// THIS CODE IS FOR THE DISTANCE CALCULATION.
+  /// It uses the Haversine formula to calculate the exact distance in kilometers
+  /// between two GPS coordinates (the household's post location and the collector's saved location).
   double _calculateDistance(
     double lat1,
     double lng1,
@@ -151,9 +162,10 @@ class _PostListingPageState extends State<PostListingPage> {
   }
 
   // ==========================================================================
-  // USER ACTIONS
+  // 4. USER ACTION FUNCTIONS
   // ==========================================================================
 
+  // Handles picking images from the gallery, limiting to 3 images and checking file size
   Future<void> _pickImages() async {
     if (_imagesBase64.length >= 3) {
       TopSnackBar.show(
@@ -163,7 +175,6 @@ class _PostListingPageState extends State<PostListingPage> {
       );
       return;
     }
-
     try {
       final List<XFile> images = await _picker.pickMultiImage(
         imageQuality: 15,
@@ -172,11 +183,11 @@ class _PostListingPageState extends State<PostListingPage> {
       for (var image in images) {
         if (_imagesBase64.length >= 3) break;
         final bytes = await File(image.path).readAsBytes();
-
         int currentSize = _imagesBase64.fold<int>(
           0,
           (sum, img) => sum + base64Decode(img).length,
         );
+
         if (currentSize + bytes.length > 800 * 1024) {
           if (mounted)
             TopSnackBar.show(
@@ -198,6 +209,7 @@ class _PostListingPageState extends State<PostListingPage> {
     }
   }
 
+  // Handles requesting GPS permissions and capturing the user's current location
   Future<void> _captureLocation() async {
     setState(() => _isLocationLoading = true);
     try {
@@ -225,7 +237,7 @@ class _PostListingPageState extends State<PostListingPage> {
         setState(() => _isLocationLoading = false);
         TopSnackBar.show(
           context,
-          message: 'Location captured ',
+          message: 'Location captured 📍',
           backgroundColor: Colors.green,
         );
       }
@@ -241,10 +253,14 @@ class _PostListingPageState extends State<PostListingPage> {
     }
   }
 
+  // THESE CODES ARE FOR THE PUSH NOTIFICATION FUNCTIONS.
+  // It queries all collectors, calculates the distance to each, filters strictly by 1km radius,
+  // and sends the API request to OneSignal to trigger the notification.
   Future<void> _sendNearbyNotifications(String householdName) async {
     if (_currentPosition == null) return;
 
     try {
+      // 1. Get all collectors who have a OneSignal ID and a saved home location
       final collectorsSnapshot = await FirebaseFirestore.instance
           .collection('users')
           .where('role', isEqualTo: 'collector')
@@ -253,6 +269,8 @@ class _PostListingPageState extends State<PostListingPage> {
           .get();
 
       List<String> targetPlayerIds = [];
+
+      // 2. Loop through collectors and calculate distance
       for (var doc in collectorsSnapshot.docs) {
         final collectorData = doc.data();
         final homeLoc = collectorData['homeLocation'] as Map<String, dynamic>?;
@@ -265,7 +283,7 @@ class _PostListingPageState extends State<PostListingPage> {
             homeLoc['longitude'],
           );
 
-          // ✅ STRICT 1KM RADIUS FOR NOTIFICATIONS
+          // 3. STRICT 1KM RADIUS FILTER: Only add to notification list if within 1km
           if (distance <= 1.0) {
             targetPlayerIds.add(collectorData['onesignalId']);
             debugPrint(
@@ -275,6 +293,7 @@ class _PostListingPageState extends State<PostListingPage> {
         }
       }
 
+      // 4. Send the actual HTTP request to OneSignal API
       if (targetPlayerIds.isNotEmpty) {
         final String oneSignalAppId = dotenv.env['ONESIGNAL_APP_ID'] ?? '';
         final String oneSignalRestApiKey =
@@ -318,6 +337,8 @@ class _PostListingPageState extends State<PostListingPage> {
     }
   }
 
+  // THIS CODE HANDLES THE FINAL SUBMISSION OF THE LISTING.
+  // It validates the form, saves the data to Firestore, and triggers the notification function.
   Future<void> _submitListing() async {
     if (!_formKey.currentState!.validate()) return;
     if (!isEditMode && _currentPosition == null) {
@@ -329,6 +350,7 @@ class _PostListingPageState extends State<PostListingPage> {
       return;
     }
 
+    // Check total image size limit (max 950KB to prevent Firestore document size errors)
     int totalSize = 0;
     for (var img in _imagesBase64) totalSize += base64Decode(img).length;
     if (totalSize > 950 * 1024) {
@@ -351,6 +373,7 @@ class _PostListingPageState extends State<PostListingPage> {
       };
 
       if (isEditMode) {
+        // Update existing listing in Firestore
         await FirebaseFirestore.instance
             .collection('listings')
             .doc(widget.existingListing!['id'])
@@ -371,6 +394,7 @@ class _PostListingPageState extends State<PostListingPage> {
           Navigator.pop(context);
         }
       } else {
+        // Create new listing in Firestore
         final userDoc = await FirebaseFirestore.instance
             .collection('users')
             .doc(user.uid)
@@ -392,6 +416,7 @@ class _PostListingPageState extends State<PostListingPage> {
           'images': _imagesBase64,
         });
 
+        // Trigger the push notification function we defined above
         await _sendNearbyNotifications(householdName);
 
         if (mounted) {
@@ -431,7 +456,8 @@ class _PostListingPageState extends State<PostListingPage> {
   }
 
   // ==========================================================================
-  // UI BUILD METHOD
+  // 5. UI BUILD METHOD
+  // This code renders the visual layout of the screen (Form, Inputs, Buttons)
   // ==========================================================================
 
   @override
@@ -461,7 +487,7 @@ class _PostListingPageState extends State<PostListingPage> {
               ),
               const SizedBox(height: 16),
 
-              // Photos Section
+              // --- Image Picker UI ---
               const Text(
                 'Photos (Max 3)',
                 style: TextStyle(
@@ -556,7 +582,7 @@ class _PostListingPageState extends State<PostListingPage> {
               ),
               const SizedBox(height: 16),
 
-              // Category Dropdown
+              // --- Category Dropdown UI ---
               DropdownButtonFormField<String>(
                 value: _selectedCategory,
                 decoration: const InputDecoration(
@@ -574,7 +600,7 @@ class _PostListingPageState extends State<PostListingPage> {
               ),
               const SizedBox(height: 16),
 
-              // Quantity Input
+              // --- Quantity Input UI ---
               TextFormField(
                 controller: _quantityController,
                 decoration: const InputDecoration(
@@ -588,7 +614,7 @@ class _PostListingPageState extends State<PostListingPage> {
               ),
               const SizedBox(height: 16),
 
-              // Description Input
+              // --- Description Input UI ---
               TextFormField(
                 controller: _descriptionController,
                 maxLines: 3,
@@ -603,7 +629,7 @@ class _PostListingPageState extends State<PostListingPage> {
               ),
               const SizedBox(height: 24),
 
-              // Location Section
+              // --- Location Capture UI ---
               const Text(
                 'Pickup Location',
                 style: TextStyle(
@@ -654,6 +680,8 @@ class _PostListingPageState extends State<PostListingPage> {
                 ),
 
               const SizedBox(height: 32),
+
+              // --- Submit Button UI ---
               PrimaryButton(
                 text: isEditMode ? 'UPDATE LISTING' : 'POST LISTING',
                 onPressed: _submitListing,
