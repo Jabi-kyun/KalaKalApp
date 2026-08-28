@@ -29,7 +29,11 @@ class _HomePageState extends State<HomePage> {
   String userName = '';
   String? userProfilePic;
   bool isLoading = true;
-  int activeListingsCount = 0;
+  
+  // BADGE COUNTS FOR DASHBOARDS
+  int activeListingsCount = 0;          // Collector: Nearby scraps available
+  int pendingBidCount = 0;              // Collector: Booked/Pending Confirmation bids
+  int householdPendingBidsCount = 0;    // Household: Active listings that have received bids
 
   @override
   void initState() {
@@ -37,6 +41,8 @@ class _HomePageState extends State<HomePage> {
     _loadUserData();
   }
 
+  /// Fetches the current user's data from Firestore and updates the UI state.
+  /// Redirects to login if no user is found. Triggers specific stats fetch based on role.
   Future<void> _loadUserData() async {
     try {
       final user = FirebaseAuth.instance.currentUser;
@@ -63,8 +69,11 @@ class _HomePageState extends State<HomePage> {
           isLoading = false;
         });
 
+        // ✅ Fetch specific dashboard stats based on user role
         if (userRole == 'collector') {
-          _fetchActiveListingsCount();
+          _fetchCollectorStats();
+        } else if (userRole == 'household') {
+          _fetchHouseholdStats();
         }
       } else {
         throw Exception('Profile not found');
@@ -83,18 +92,76 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  Future<void> _fetchActiveListingsCount() async {
+  /// ✅ HOUSEHOLD STATS: Counts how many ACTIVE listings have received at least one bid.
+  Future<void> _fetchHouseholdStats() async {
     try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) return;
+
       final snapshot = await FirebaseFirestore.instance
+          .collection('listings')
+          .where('householdUid', isEqualTo: user.uid)
+          .where('status', isEqualTo: 'Active')
+          .get();
+
+      int count = 0;
+      for (var doc in snapshot.docs) {
+        final data = doc.data();
+        final bidsList = (data['bids'] as List<dynamic>?);
+        
+        // If the listing has a bids array and it's not empty, count it
+        if (bidsList != null && bidsList.isNotEmpty) {
+          count++;
+        }
+      }
+
+      setState(() {
+        householdPendingBidsCount = count;
+      });
+    } catch (e) {
+      debugPrint('❌ Error fetching household stats: $e');
+    }
+  }
+
+  /// ✅ COLLECTOR STATS: Counts nearby active listings AND pending bid actions.
+  Future<void> _fetchCollectorStats() async {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) return;
+
+      // 1. Get nearby active listings count
+      final nearbySnapshot = await FirebaseFirestore.instance
           .collection('listings')
           .where('status', isEqualTo: 'Active')
           .get();
 
+      // 2. Get Booked and Pending Confirmation listings
+      final pendingSnapshot = await FirebaseFirestore.instance
+          .collection('listings')
+          .where('status', whereIn: ['Booked', 'Pending Confirmation'])
+          .get();
+
+      int bidCount = 0;
+      for (var doc in pendingSnapshot.docs) {
+        final data = doc.data();
+        final bidsList = (data['bids'] as List<dynamic>?);
+        
+        if (bidsList != null) {
+          final myBid = bidsList.firstWhere(
+            (bid) => (bid as Map)['collectorUid'] == user.uid && 
+                     (bid as Map)['status'] == 'Accepted',
+            orElse: () => null,
+          );
+          if (myBid != null) bidCount++;
+        }
+      }
+
       setState(() {
-        activeListingsCount = snapshot.docs.length;
+        activeListingsCount = nearbySnapshot.docs.length;
+        pendingBidCount = bidCount;
       });
     } catch (e) {
-      debugPrint('❌ Error fetching active listings count: $e');
+      debugPrint('❌ Error fetching collector stats: $e');
     }
   }
 
@@ -224,30 +291,16 @@ class _HomePageState extends State<HomePage> {
             CircleAvatar(
               radius: 32,
               backgroundColor: Colors.red.shade100,
-              child: const Icon(
-                Icons.admin_panel_settings,
-                size: 32,
-                color: Colors.red,
-              ),
+              child: const Icon(Icons.admin_panel_settings, size: 32, color: Colors.red),
             ),
             const SizedBox(width: 16),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    'Hello, $userName! 👑',
-                    style: const TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.red,
-                    ),
-                  ),
+                  Text('Hello, $userName! 👑', style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.red)),
                   const SizedBox(height: 4),
-                  const Text(
-                    'Manage the KalaKalApp system.',
-                    style: TextStyle(color: Colors.grey, fontSize: 14),
-                  ),
+                  const Text('Manage the KalaKalApp system.', style: TextStyle(color: Colors.grey, fontSize: 14)),
                 ],
               ),
             ),
@@ -257,26 +310,10 @@ class _HomePageState extends State<HomePage> {
         SizedBox(
           width: double.infinity,
           child: ElevatedButton.icon(
-            onPressed: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const AdminDashboardPage()),
-            ),
+            onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AdminDashboardPage())),
             icon: const Icon(Icons.dashboard, color: Colors.white),
-            label: const Text(
-              'OPEN ADMIN DASHBOARD',
-              style: TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
-                fontSize: 16,
-              ),
-            ),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red,
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
+            label: const Text('OPEN ADMIN DASHBOARD', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red, padding: const EdgeInsets.symmetric(vertical: 16), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
           ),
         ),
       ],
@@ -292,44 +329,22 @@ class _HomePageState extends State<HomePage> {
             CircleAvatar(
               radius: 32,
               backgroundColor: Colors.green.shade100,
-              backgroundImage: userProfilePic != null
-                  ? MemoryImage(base64Decode(userProfilePic!))
-                  : null,
-              child: userProfilePic == null
-                  ? Text(
-                      userName.isNotEmpty ? userName[0].toUpperCase() : '?',
-                      style: TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.green.shade800,
-                      ),
-                    )
-                  : null,
+              backgroundImage: userProfilePic != null ? MemoryImage(base64Decode(userProfilePic!)) : null,
+              child: userProfilePic == null ? Text(userName.isNotEmpty ? userName[0].toUpperCase() : '?', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.green.shade800)) : null,
             ),
             const SizedBox(width: 16),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    'Hello, $userName! 👋',
-                    style: const TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.green,
-                    ),
-                  ),
+                  Text('Hello, $userName! 👋', style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.green)),
                   const SizedBox(height: 4),
-                  const Text(
-                    'Sell your recyclables quickly and fairly.',
-                    style: TextStyle(color: Colors.grey, fontSize: 14),
-                  ),
+                  const Text('Sell your recyclables quickly and fairly.', style: TextStyle(color: Colors.grey, fontSize: 14)),
                 ],
               ),
             ),
           ],
         ),
-
         const SizedBox(height: 24),
         Expanded(
           child: GridView.count(
@@ -342,44 +357,37 @@ class _HomePageState extends State<HomePage> {
                 title: 'Post Scrap',
                 subtitle: 'Sell your recyclables',
                 color: Colors.green,
-                onTap: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const PostListingPage()),
-                ),
+                onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PostListingPage())),
               ),
               ActionCard(
                 icon: Icons.list_alt,
                 title: 'My Listings',
                 subtitle: 'View active posts',
                 color: Colors.blue,
-                onTap: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const MyListingsPage()),
-                ),
+                onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const MyListingsPage())),
               ),
+              // UPDATED: Added badge for Household Received Bids
               ActionCard(
                 icon: Icons.monetization_on,
                 title: 'Received Bids',
                 subtitle: 'Check collector offers',
                 color: Colors.orange,
-                onTap: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => const MyActiveListingsPage(),
-                  ),
-                ),
+                badge: true,
+                badgeCount: householdPendingBidsCount,
+                onTap: () async {
+                  await Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const MyActiveListingsPage()),
+                  );
+                  _fetchHouseholdStats(); // Refresh badge count after returning
+                },
               ),
               ActionCard(
                 icon: Icons.history,
                 title: 'History',
                 subtitle: 'Past sales & ratings',
                 color: Colors.purple,
-                onTap: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => const HouseholdHistoryPage(),
-                  ),
-                ),
+                onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const HouseholdHistoryPage())),
               ),
             ],
           ),
@@ -397,44 +405,22 @@ class _HomePageState extends State<HomePage> {
             CircleAvatar(
               radius: 32,
               backgroundColor: Colors.green.shade100,
-              backgroundImage: userProfilePic != null
-                  ? MemoryImage(base64Decode(userProfilePic!))
-                  : null,
-              child: userProfilePic == null
-                  ? Text(
-                      userName.isNotEmpty ? userName[0].toUpperCase() : '?',
-                      style: TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.green.shade800,
-                      ),
-                    )
-                  : null,
+              backgroundImage: userProfilePic != null ? MemoryImage(base64Decode(userProfilePic!)) : null,
+              child: userProfilePic == null ? Text(userName.isNotEmpty ? userName[0].toUpperCase() : '?', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.green.shade800)) : null,
             ),
             const SizedBox(width: 16),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    'Hello, $userName! ',
-                    style: const TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.green,
-                    ),
-                  ),
+                  Text('Hello, $userName! ', style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.green)),
                   const SizedBox(height: 4),
-                  const Text(
-                    'Find nearby recyclables to collect.',
-                    style: TextStyle(color: Colors.grey, fontSize: 14),
-                  ),
+                  const Text('Find nearby recyclables to collect.', style: TextStyle(color: Colors.grey, fontSize: 14)),
                 ],
               ),
             ),
           ],
         ),
-
         const SizedBox(height: 24),
         Expanded(
           child: GridView.count(
@@ -450,13 +436,8 @@ class _HomePageState extends State<HomePage> {
                 badge: true,
                 badgeCount: activeListingsCount,
                 onTap: () async {
-                  await Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => const NearbyListingsPage(),
-                    ),
-                  );
-                  _fetchActiveListingsCount();
+                  await Navigator.push(context, MaterialPageRoute(builder: (_) => const NearbyListingsPage()));
+                  _fetchCollectorStats(); // Refresh both badges
                 },
               ),
               ActionCard(
@@ -464,22 +445,19 @@ class _HomePageState extends State<HomePage> {
                 title: 'My Bids',
                 subtitle: 'Track your offers',
                 color: Colors.orange,
-                onTap: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const MyBidsPage()),
-                ),
+                badge: true,
+                badgeCount: pendingBidCount,
+                onTap: () async {
+                  await Navigator.push(context, MaterialPageRoute(builder: (_) => const MyBidsPage()));
+                  _fetchCollectorStats(); // Refresh both badges
+                },
               ),
               ActionCard(
                 icon: Icons.history,
                 title: 'History',
                 subtitle: 'Past collections',
                 color: Colors.purple,
-                onTap: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => const CollectorHistoryPage(),
-                  ),
-                ),
+                onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const CollectorHistoryPage())),
               ),
             ],
           ),
