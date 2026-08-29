@@ -10,6 +10,8 @@ import 'received_bids_page.dart';
 // WIDGET CLASS
 // ============================================================================
 
+// THIS CLASS DEFINES THE MY ACTIVE LISTINGS PAGE FOR HOUSEHOLDS.
+// IT ALLOWS USERS TO VIEW THEIR ACTIVE LISTINGS AND CONFIRM COMPLETED PICKUPS.
 class MyActiveListingsPage extends StatefulWidget {
   const MyActiveListingsPage({super.key});
 
@@ -18,11 +20,11 @@ class MyActiveListingsPage extends StatefulWidget {
 }
 
 class _MyActiveListingsPageState extends State<MyActiveListingsPage> {
-  
   // ==========================================================================
   // 1. STATE VARIABLES
   // ==========================================================================
 
+  // THESE HOLD THE LOADING STATE AND THE LIST OF THE HOUSEHOLD'S ACTIVE LISTINGS.
   bool isLoading = true;
   List<Map<String, dynamic>> activeListings = [];
 
@@ -33,6 +35,7 @@ class _MyActiveListingsPageState extends State<MyActiveListingsPage> {
   @override
   void initState() {
     super.initState();
+    // AUTOMATICALLY FETCH ACTIVE LISTINGS AS SOON AS THE PAGE OPENS.
     _fetchActiveListings();
   }
 
@@ -40,16 +43,16 @@ class _MyActiveListingsPageState extends State<MyActiveListingsPage> {
   // 3. DATA FETCHING & USER ACTIONS
   // ==========================================================================
 
-  /// THESE CODES ARE FOR FETCHING THE HOUSEHOLD'S ACTIVE & PENDING LISTINGS.
-  /// ✅ UPDATED: Now includes 'Pending Confirmation' status so households 
-  /// can see listings that need their final approval.
+  /// THIS FUNCTION FETCHES THE HOUSEHOLD'S ACTIVE AND PENDING LISTINGS.
+  /// UPDATED: NOW INCLUDES 'PENDING CONFIRMATION' STATUS SO HOUSEHOLDS
+  /// CAN SEE LISTINGS THAT NEED THEIR FINAL APPROVAL.
   Future<void> _fetchActiveListings() async {
     setState(() => isLoading = true);
     try {
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) return;
 
-      // ✅ UPDATED: Fetch Active AND Pending Confirmation listings
+      // FETCH ACTIVE AND PENDING CONFIRMATION LISTINGS
       final snapshot = await FirebaseFirestore.instance
           .collection('listings')
           .where('householdUid', isEqualTo: user.uid)
@@ -66,14 +69,14 @@ class _MyActiveListingsPageState extends State<MyActiveListingsPage> {
         isLoading = false;
       });
     } catch (e) {
-      debugPrint(' Error fetching active listings: $e');
+      debugPrint('Error fetching active listings: $e');
       setState(() => isLoading = false);
     }
   }
 
-  /// THESE CODES ARE FOR THE HOUSEHOLD TO CONFIRM TRANSACTION COMPLETION.
-  /// This is the SECOND step of the two-party confirmation flow.
-  /// It changes the status from 'Pending Confirmation' to 'Finished'.
+  /// THIS FUNCTION IS FOR THE HOUSEHOLD TO CONFIRM TRANSACTION COMPLETION.
+  /// THIS IS THE SECOND STEP OF THE TWO-PARTY CONFIRMATION FLOW.
+  /// IT CHANGES THE STATUS FROM 'PENDING CONFIRMATION' TO 'FINISHED'.
   Future<void> _confirmCompletion(String listingId) async {
     final confirm = await showDialog<bool>(
       context: context,
@@ -84,11 +87,17 @@ class _MyActiveListingsPageState extends State<MyActiveListingsPage> {
           'This will permanently close the transaction.',
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
           ElevatedButton(
             onPressed: () => Navigator.pop(context, true),
             style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
-            child: const Text('Yes, Confirm', style: TextStyle(color: Colors.white)),
+            child: const Text(
+              'Yes, Confirm',
+              style: TextStyle(color: Colors.white),
+            ),
           ),
         ],
       ),
@@ -96,18 +105,29 @@ class _MyActiveListingsPageState extends State<MyActiveListingsPage> {
 
     if (confirm == true && mounted) {
       try {
-        await FirebaseFirestore.instance.collection('listings').doc(listingId).update({
-          'status': 'Finished',
-          'completedAt': FieldValue.serverTimestamp(),
-        });
+        await FirebaseFirestore.instance
+            .collection('listings')
+            .doc(listingId)
+            .update({
+              'status': 'Finished',
+              'completedAt': FieldValue.serverTimestamp(),
+            });
 
         if (mounted) {
-          TopSnackBar.show(context, message: 'Transaction completed successfully! ✅', backgroundColor: Colors.green);
-          _fetchActiveListings(); // Refresh to remove it from active list
+          TopSnackBar.show(
+            context,
+            message: 'Transaction completed successfully!',
+            backgroundColor: Colors.green,
+          );
+          _fetchActiveListings(); // REFRESH TO REMOVE IT FROM ACTIVE LIST
         }
       } catch (e) {
         if (mounted) {
-          TopSnackBar.show(context, message: 'Error confirming completion: $e', backgroundColor: Colors.red);
+          TopSnackBar.show(
+            context,
+            message: 'Error confirming completion: $e',
+            backgroundColor: Colors.red,
+          );
         }
       }
     }
@@ -117,15 +137,23 @@ class _MyActiveListingsPageState extends State<MyActiveListingsPage> {
   // 4. UI BUILD METHOD
   // ==========================================================================
 
+  /// THIS METHOD RENDERS THE VISUAL LAYOUT OF THE HOUSEHOLD'S ACTIVE LISTINGS PAGE.
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF2F7F3),
       appBar: const KalaKalAppBar(title: 'Received Bids', showBackButton: true),
       body: isLoading
+          // SHOW LOADING SPINNER WHILE FETCHING DATA
           ? const Center(child: CircularProgressIndicator(color: Colors.green))
+          // SHOW EMPTY STATE IF THE HOUSEHOLD HAS NO ACTIVE LISTINGS
           : activeListings.isEmpty
-          ? const EmptyState(icon: Icons.monetization_on_outlined, title: 'No active listings.', subtitle: 'Post a scrap to start receiving bids!')
+          ? const EmptyState(
+              icon: Icons.monetization_on_outlined,
+              title: 'No active listings.',
+              subtitle: 'Post a scrap to start receiving bids!',
+            )
+          // SHOW THE SCROLLABLE LIST OF ACTIVE LISTINGS WITH PULL-TO-REFRESH
           : RefreshIndicator(
               onRefresh: _fetchActiveListings,
               child: ListView.builder(
@@ -134,22 +162,31 @@ class _MyActiveListingsPageState extends State<MyActiveListingsPage> {
                 itemBuilder: (context, index) {
                   final item = activeListings[index];
                   final status = item['status'] ?? 'Active';
-                  final isPendingConfirmation = status == 'Pending Confirmation';
+                  final isPendingConfirmation =
+                      status == 'Pending Confirmation';
 
                   return Card(
                     elevation: 2,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                     child: ListTile(
                       contentPadding: const EdgeInsets.all(16),
                       leading: Container(
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
-                          color: isPendingConfirmation ? Colors.purple.shade100 : Colors.green.shade100,
+                          color: isPendingConfirmation
+                              ? Colors.purple.shade100
+                              : Colors.green.shade100,
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: Icon(
-                          isPendingConfirmation ? Icons.hourglass_empty : Icons.recycling,
-                          color: isPendingConfirmation ? Colors.purple.shade700 : Colors.green.shade700,
+                          isPendingConfirmation
+                              ? Icons.hourglass_empty
+                              : Icons.recycling,
+                          color: isPendingConfirmation
+                              ? Colors.purple.shade700
+                              : Colors.green.shade700,
                         ),
                       ),
                       title: Text(
@@ -159,13 +196,21 @@ class _MyActiveListingsPageState extends State<MyActiveListingsPage> {
                       subtitle: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text('${item['quantity']} • ${item['description']}', maxLines: 2, overflow: TextOverflow.ellipsis),
+                          Text(
+                            '${item['quantity']} • ${item['description']}',
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
                           if (isPendingConfirmation)
                             Padding(
                               padding: const EdgeInsets.only(top: 4),
                               child: Text(
-                                '⏳ Collector confirmed pickup. Awaiting your approval.',
-                                style: TextStyle(color: Colors.purple.shade700, fontSize: 12, fontWeight: FontWeight.w500),
+                                'Collector confirmed pickup. Awaiting your approval.',
+                                style: TextStyle(
+                                  color: Colors.purple.shade700,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w500,
+                                ),
                               ),
                             ),
                         ],
@@ -173,22 +218,42 @@ class _MyActiveListingsPageState extends State<MyActiveListingsPage> {
                       trailing: isPendingConfirmation
                           ? ElevatedButton.icon(
                               onPressed: () => _confirmCompletion(item['id']),
-                              icon: const Icon(Icons.check_circle_outline, size: 18),
-                              label: const Text('CONFIRM', style: TextStyle(fontWeight: FontWeight.bold)),
+                              icon: const Icon(
+                                Icons.check_circle_outline,
+                                size: 18,
+                              ),
+                              label: const Text(
+                                'CONFIRM',
+                                style: TextStyle(fontWeight: FontWeight.bold),
+                              ),
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: Colors.purple,
                                 foregroundColor: Colors.white,
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
                               ),
                             )
-                          : const Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey),
-                      onTap: isPendingConfirmation ? null : () {
-                        Navigator.push(context, MaterialPageRoute(builder: (_) => ReceivedBidsPage(
-                          listingId: item['id'],
-                          listingCategory: item['category'] ?? 'Unknown',
-                          listingQuantity: item['quantity'] ?? '',
-                        )));
-                      },
+                          : const Icon(
+                              Icons.arrow_forward_ios,
+                              size: 16,
+                              color: Colors.grey,
+                            ),
+                      onTap: isPendingConfirmation
+                          ? null
+                          : () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => ReceivedBidsPage(
+                                    listingId: item['id'],
+                                    listingCategory:
+                                        item['category'] ?? 'Unknown',
+                                    listingQuantity: item['quantity'] ?? '',
+                                  ),
+                                ),
+                              );
+                            },
                     ),
                   );
                 },

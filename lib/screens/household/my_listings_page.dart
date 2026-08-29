@@ -7,12 +7,14 @@ import 'post_listing_page.dart';
 import '../widgets/kala_kal_app_bar.dart';
 import '../widgets/status_chip.dart';
 import '../widgets/empty_state.dart';
-import '../widgets/top_snackbar.dart'; // ✅ Added for consistent notifications
+import '../widgets/top_snackbar.dart';
 
 // ============================================================================
 // WIDGET CLASS
 // ============================================================================
 
+// THIS CLASS DEFINES THE MY LISTINGS PAGE FOR HOUSEHOLDS.
+// IT ALLOWS USERS TO VIEW, EDIT, AND CANCEL THEIR POSTED SCRAP LISTINGS.
 class MyListingsPage extends StatefulWidget {
   const MyListingsPage({super.key});
 
@@ -23,9 +25,9 @@ class MyListingsPage extends StatefulWidget {
 class _MyListingsPageState extends State<MyListingsPage> {
   // ==========================================================================
   // 1. STATE VARIABLES
-  // These hold the loading state and the list of all listings created by this household
   // ==========================================================================
 
+  // THESE HOLD THE LOADING STATE AND THE LIST OF ALL LISTINGS CREATED BY THIS HOUSEHOLD.
   bool isLoading = true;
   List<Map<String, dynamic>> listings = [];
 
@@ -36,7 +38,7 @@ class _MyListingsPageState extends State<MyListingsPage> {
   @override
   void initState() {
     super.initState();
-    // Automatically fetch the household's listings as soon as the page opens
+    // AUTOMATICALLY FETCH THE HOUSEHOLD'S LISTINGS AS SOON AS THE PAGE OPENS.
     _fetchListings();
   }
 
@@ -44,10 +46,10 @@ class _MyListingsPageState extends State<MyListingsPage> {
   // 3. DATA FETCHING & HELPER FUNCTIONS
   // ==========================================================================
 
-  /// THESE CODES ARE FOR FETCHING ALL LISTINGS CREATED BY THIS HOUSEHOLD.
-  /// It queries the Firestore 'listings' collection, filtering strictly by the
-  /// current user's 'householdUid'. It orders them by creation date (newest first)
-  /// so the user sees their most recent posts at the top.
+  /// THIS FUNCTION FETCHES ALL LISTINGS CREATED BY THIS HOUSEHOLD.
+  /// IT QUERIES THE FIRESTORE 'LISTINGS' COLLECTION, FILTERING STRICTLY BY THE
+  /// CURRENT USER'S 'HOUSEHOLDUID'. IT ORDERS THEM BY CREATION DATE (NEWEST FIRST)
+  /// SO THE USER SEES THEIR MOST RECENT POSTS AT THE TOP.
   Future<void> _fetchListings() async {
     setState(() => isLoading = true);
     try {
@@ -63,13 +65,13 @@ class _MyListingsPageState extends State<MyListingsPage> {
       setState(() {
         listings = snapshot.docs.map((doc) {
           final data = doc.data();
-          data['id'] = doc.id; // Attach document ID for editing/cancelling
+          data['id'] = doc.id; // ATTACH DOCUMENT ID FOR EDITING/CANCELLING
           return data;
         }).toList();
         isLoading = false;
       });
     } catch (e) {
-      debugPrint('❌ Error fetching listings: $e');
+      debugPrint('Error fetching listings: $e');
       setState(() => isLoading = false);
       if (mounted) {
         TopSnackBar.show(
@@ -82,7 +84,7 @@ class _MyListingsPageState extends State<MyListingsPage> {
   }
 
   /// HELPER FUNCTION TO ASSIGN COLORS BASED ON LISTING STATUS.
-  /// Returns a specific color for Active, Booked, Finished, or Cancelled states.
+  /// RETURNS A SPECIFIC COLOR FOR ACTIVE, BOOKED, FINISHED, OR CANCELLED STATES.
   Color _getStatusColor(String status) {
     switch (status.toLowerCase()) {
       case 'active':
@@ -102,10 +104,10 @@ class _MyListingsPageState extends State<MyListingsPage> {
   // 4. USER ACTIONS
   // ==========================================================================
 
-  /// THESE CODES ARE FOR CANCELLING AN ACTIVE LISTING.
-  /// It shows a confirmation dialog to prevent accidental cancellations.
-  /// If confirmed, it updates the listing's status to 'Cancelled' in Firestore,
-  /// instantly updates the local UI to reflect the change, and shows a success message.
+  /// THIS FUNCTION HANDLES CANCELLING AN ACTIVE LISTING.
+  /// IT SHOWS A CONFIRMATION DIALOG TO PREVENT ACCIDENTAL CANCELLATIONS.
+  /// IF CONFIRMED, IT UPDATES THE LISTING'S STATUS TO 'CANCELLED' IN FIRESTORE,
+  /// INSTANTLY UPDATES THE LOCAL UI TO REFLECT THE CHANGE, AND SHOWS A SUCCESS MESSAGE.
   Future<void> _cancelListing(String docId) async {
     final confirm = await showDialog<bool>(
       context: context,
@@ -134,7 +136,7 @@ class _MyListingsPageState extends State<MyListingsPage> {
 
     if (confirm == true && mounted) {
       try {
-        // 1. Update status in Firestore
+        // 1. UPDATE STATUS IN FIRESTORE
         await FirebaseFirestore.instance
             .collection('listings')
             .doc(docId)
@@ -143,7 +145,7 @@ class _MyListingsPageState extends State<MyListingsPage> {
               'cancelledAt': FieldValue.serverTimestamp(),
             });
 
-        // 2. Update local UI instantly without needing to re-fetch from the database
+        // 2. UPDATE LOCAL UI INSTANTLY WITHOUT NEEDING TO RE-FETCH FROM THE DATABASE
         setState(() {
           final index = listings.indexWhere((item) => item['id'] == docId);
           if (index != -1) {
@@ -170,7 +172,7 @@ class _MyListingsPageState extends State<MyListingsPage> {
   }
 
   /// HELPER UI WIDGET FOR COMPACT ACTION BUTTONS.
-  /// Creates small, space-efficient icon + text buttons that won't overflow the screen.
+  /// CREATES SMALL, SPACE-EFFICIENT ICON + TEXT BUTTONS THAT WON'T OVERFLOW THE SCREEN.
   Widget _buildCompactButton(
     IconData icon,
     String label,
@@ -203,25 +205,25 @@ class _MyListingsPageState extends State<MyListingsPage> {
 
   // ==========================================================================
   // 5. UI BUILD METHOD
-  // This code renders the visual layout of the Household's "My Listings" page
   // ==========================================================================
 
+  /// THIS METHOD RENDERS THE VISUAL LAYOUT OF THE HOUSEHOLD'S MY LISTINGS PAGE.
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF2F7F3),
       appBar: const KalaKalAppBar(title: 'My Listings', showBackButton: true),
       body: isLoading
-          // Show loading spinner while fetching data
+          // SHOW LOADING SPINNER WHILE FETCHING DATA
           ? const Center(child: CircularProgressIndicator(color: Colors.green))
-          // Show empty state if the household hasn't posted anything yet
+          // SHOW EMPTY STATE IF THE HOUSEHOLD HASN'T POSTED ANYTHING YET
           : listings.isEmpty
           ? const EmptyState(
               icon: Icons.inbox_outlined,
               title: 'No listings yet.',
               subtitle: 'Post your first scrap to get started!',
             )
-          // Show the scrollable list of all listings with pull-to-refresh
+          // SHOW THE SCROLLABLE LIST OF ALL LISTINGS WITH PULL-TO-REFRESH
           : RefreshIndicator(
               onRefresh: _fetchListings,
               child: ListView.builder(
@@ -246,7 +248,7 @@ class _MyListingsPageState extends State<MyListingsPage> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          // Top Row: Category and Status Chips
+                          // TOP ROW: CATEGORY AND STATUS CHIPS
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
@@ -262,7 +264,7 @@ class _MyListingsPageState extends State<MyListingsPage> {
                           ),
                           const SizedBox(height: 12),
 
-                          // Listing Details
+                          // LISTING DETAILS
                           Text(
                             'Quantity: ${item['quantity']}',
                             style: const TextStyle(
@@ -277,7 +279,7 @@ class _MyListingsPageState extends State<MyListingsPage> {
                           ),
                           const SizedBox(height: 12),
 
-                          // Bottom Row: Date and Dynamic Action Buttons
+                          // BOTTOM ROW: DATE AND DYNAMIC ACTION BUTTONS
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
@@ -292,7 +294,7 @@ class _MyListingsPageState extends State<MyListingsPage> {
                                 child: Row(
                                   mainAxisAlignment: MainAxisAlignment.end,
                                   children: [
-                                    // Show Edit, Bids, and Cancel buttons ONLY if the listing is Active
+                                    // SHOW EDIT, BIDS, AND CANCEL BUTTONS ONLY IF THE LISTING IS ACTIVE
                                     if (status == 'Active') ...[
                                       _buildCompactButton(
                                         Icons.edit_outlined,
@@ -331,7 +333,7 @@ class _MyListingsPageState extends State<MyListingsPage> {
                                         () => _cancelListing(item['id']),
                                       ),
                                     ]
-                                    // Show a static 'CANCELLED' chip if the listing was cancelled
+                                    // SHOW A STATIC 'CANCELLED' CHIP IF THE LISTING WAS CANCELLED
                                     else if (status == 'Cancelled')
                                       const Chip(
                                         label: Text(

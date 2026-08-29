@@ -1,8 +1,8 @@
 import 'dart:convert';
-import 'dart:math' as math; // ✅ Added for Haversine distance formula
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:geolocator/geolocator.dart'; // ✅ Added for GPS location
+import 'package:geolocator/geolocator.dart';
 import 'package:intl/intl.dart';
 import '../widgets/kala_kal_app_bar.dart';
 import '../widgets/top_snackbar.dart';
@@ -12,6 +12,9 @@ import 'place_bid_page.dart';
 // WIDGET CLASS
 // ============================================================================
 
+// THIS CLASS DEFINES THE NEARBY LISTINGS PAGE FOR COLLECTORS.
+// IT FETCHES ACTIVE LISTINGS AND STRICTLY FILTERS THEM BY A 1KM RADIUS
+// USING THE HAVERSINE FORMULA SO COLLECTORS ONLY SEE RELEVANT OPPORTUNITIES.
 class NearbyListingsPage extends StatefulWidget {
   const NearbyListingsPage({super.key});
 
@@ -22,9 +25,9 @@ class NearbyListingsPage extends StatefulWidget {
 class _NearbyListingsPageState extends State<NearbyListingsPage> {
   // ==========================================================================
   // 1. STATE VARIABLES
-  // These hold the loading state and the filtered list of nearby listings
   // ==========================================================================
 
+  // THESE HOLD THE LOADING STATE AND THE FILTERED LIST OF NEARBY LISTINGS.
   bool isLoading = true;
   List<Map<String, dynamic>> listings = [];
 
@@ -35,7 +38,7 @@ class _NearbyListingsPageState extends State<NearbyListingsPage> {
   @override
   void initState() {
     super.initState();
-    // Automatically fetch and filter nearby listings when the page opens
+    // AUTOMATICALLY FETCH AND FILTER NEARBY LISTINGS WHEN THE PAGE OPENS.
     _fetchActiveListings();
   }
 
@@ -43,16 +46,16 @@ class _NearbyListingsPageState extends State<NearbyListingsPage> {
   // 3. HELPER & DATA FETCHING FUNCTIONS
   // ==========================================================================
 
-  /// THESE CODES ARE FOR CALCULATING EXACT DISTANCE.
-  /// It uses the Haversine formula to calculate the precise distance in kilometers
-  /// between two GPS coordinates (the collector's current location and the listing's location).
+  /// THIS FUNCTION CALCULATES THE EXACT DISTANCE.
+  /// IT USES THE HAVERSINE FORMULA TO CALCULATE THE PRECISE DISTANCE IN KILOMETERS
+  /// BETWEEN TWO GPS COORDINATES (THE COLLECTOR'S CURRENT LOCATION AND THE LISTING'S LOCATION).
   double _calculateDistance(
     double lat1,
     double lng1,
     double lat2,
     double lng2,
   ) {
-    const double R = 6371; // Earth's radius in km
+    const double R = 6371; // EARTH'S RADIUS IN KM
     final dLat = (lat2 - lat1) * math.pi / 180;
     final dLng = (lng2 - lng1) * math.pi / 180;
     final a =
@@ -65,34 +68,34 @@ class _NearbyListingsPageState extends State<NearbyListingsPage> {
     return R * c;
   }
 
-  /// THESE CODES ARE FOR FETCHING AND STRICTLY FILTERING LISTINGS BY 1KM RADIUS.
-  /// Since Firestore doesn't natively support complex geospatial distance queries,
-  /// this function: 1) Gets the collector's live GPS, 2) Fetches ALL active listings,
-  /// and 3) Filters them locally in Dart using the Haversine formula to ensure
-  /// ONLY listings within exactly 1.0 km are displayed to the collector.
+  /// THIS FUNCTION FETCHES AND STRICTLY FILTERS LISTINGS BY A 1KM RADIUS.
+  /// SINCE FIRESTORE DOES NOT NATIVELY SUPPORT COMPLEX GEOSPATIAL DISTANCE QUERIES,
+  /// THIS FUNCTION: 1) GETS THE COLLECTOR'S LIVE GPS, 2) FETCHES ALL ACTIVE LISTINGS,
+  /// AND 3) FILTERS THEM LOCALLY IN DART USING THE HAVERSINE FORMULA TO ENSURE
+  /// ONLY LISTINGS WITHIN EXACTLY 1.0 KM ARE DISPLAYED TO THE COLLECTOR.
   Future<void> _fetchActiveListings() async {
     setState(() => isLoading = true);
     try {
-      // Step 1: Get the collector's current live GPS location
+      // STEP 1: GET THE COLLECTOR'S CURRENT LIVE GPS LOCATION.
       Position currentPosition = await Geolocator.getCurrentPosition(
         desiredAccuracy: LocationAccuracy.high,
       );
 
-      // Step 2: Fetch ALL active listings from Firestore
+      // STEP 2: FETCH ALL ACTIVE LISTINGS FROM FIRESTORE.
       final snapshot = await FirebaseFirestore.instance
           .collection('listings')
           .where('status', isEqualTo: 'Active')
           .orderBy('createdAt', descending: true)
           .get();
 
-      // Step 3: Filter them locally based on the STRICT 1km rule
+      // STEP 3: FILTER THEM LOCALLY BASED ON THE STRICT 1KM RULE.
       List<Map<String, dynamic>> nearbyListings = [];
 
       for (var doc in snapshot.docs) {
         final data = doc.data();
         data['id'] = doc.id;
 
-        // Ensure the listing has valid saved coordinates before calculating
+        // ENSURE THE LISTING HAS VALID SAVED COORDINATES BEFORE CALCULATING.
         if (data['location'] != null &&
             data['location']['latitude'] != null &&
             data['location']['longitude'] != null) {
@@ -103,10 +106,10 @@ class _NearbyListingsPageState extends State<NearbyListingsPage> {
             data['location']['longitude'],
           );
 
-          // ✅ STRICT 1KM FILTER: Discard anything further than 1.0 km
+          // STRICT 1KM FILTER: DISCARD ANYTHING FURTHER THAN 1.0 KM.
           if (distance <= 1.0) {
             data['distance'] =
-                distance; // Save distance to display on the UI card
+                distance; // SAVE DISTANCE TO DISPLAY ON THE UI CARD
             nearbyListings.add(data);
           }
         }
@@ -119,7 +122,7 @@ class _NearbyListingsPageState extends State<NearbyListingsPage> {
         });
       }
     } catch (e) {
-      debugPrint('❌ Error fetching active listings: $e');
+      debugPrint('Error fetching active listings: $e');
       if (mounted) {
         TopSnackBar.show(
           context,
@@ -135,8 +138,8 @@ class _NearbyListingsPageState extends State<NearbyListingsPage> {
   // 4. UI COMPONENT FUNCTIONS
   // ==========================================================================
 
-  /// THESE CODES ARE FOR THE FULL-SCREEN IMAGE GALLERY.
-  /// It opens a dark-themed, swipeable, pinch-to-zoom viewer for the listing's photos.
+  /// THIS FUNCTION HANDLES THE FULL-SCREEN IMAGE GALLERY.
+  /// IT OPENS A DARK-THEMED, SWIPEABLE, PINCH-TO-ZOOM VIEWER FOR THE LISTING'S PHOTOS.
   void _showImageGallery(List<String> images, int initialIndex) {
     Navigator.push(
       context,
@@ -160,7 +163,7 @@ class _NearbyListingsPageState extends State<NearbyListingsPage> {
                 controller: PageController(initialPage: initialIndex),
                 itemCount: images.length,
                 onPageChanged: (index) {
-                  setState(() {}); // Update the counter text on swipe
+                  setState(() {}); // UPDATE THE COUNTER TEXT ON SWIPE
                 },
                 itemBuilder: (context, index) {
                   return InteractiveViewer(
@@ -171,7 +174,7 @@ class _NearbyListingsPageState extends State<NearbyListingsPage> {
                   );
                 },
               ),
-              // Image counter overlay at the bottom
+              // IMAGE COUNTER OVERLAY AT THE BOTTOM.
               Positioned(
                 bottom: 20,
                 left: 0,
@@ -204,8 +207,8 @@ class _NearbyListingsPageState extends State<NearbyListingsPage> {
     );
   }
 
-  /// THESE CODES ARE FOR THE DRAGGABLE LISTING DETAILS BOTTOM SHEET.
-  /// It displays the full listing information, images, and the "Place Bid" action button.
+  /// THIS FUNCTION HANDLES THE DRAGGABLE LISTING DETAILS BOTTOM SHEET.
+  /// IT DISPLAYS THE FULL LISTING INFORMATION, IMAGES, AND THE "PLACE BID" ACTION BUTTON.
   void _showListingBottomSheet(Map<String, dynamic> listing) {
     showModalBottomSheet(
       context: context,
@@ -224,7 +227,7 @@ class _NearbyListingsPageState extends State<NearbyListingsPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Drag handle indicator
+                  // DRAG HANDLE INDICATOR.
                   Center(
                     child: Container(
                       width: 40,
@@ -237,7 +240,7 @@ class _NearbyListingsPageState extends State<NearbyListingsPage> {
                   ),
                   const SizedBox(height: 16),
 
-                  // Horizontal Image Slider
+                  // HORIZONTAL IMAGE SLIDER.
                   if (listing['images'] != null &&
                       (listing['images'] as List).isNotEmpty)
                     SizedBox(
@@ -290,7 +293,7 @@ class _NearbyListingsPageState extends State<NearbyListingsPage> {
 
                   const SizedBox(height: 16),
 
-                  // Listing Details
+                  // LISTING DETAILS.
                   Text(
                     listing['category'] ?? 'Unknown',
                     style: const TextStyle(
@@ -318,12 +321,12 @@ class _NearbyListingsPageState extends State<NearbyListingsPage> {
                   ),
                   const SizedBox(height: 24),
 
-                  // Place Bid Action Button
+                  // PLACE BID ACTION BUTTON.
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton.icon(
                       onPressed: () {
-                        Navigator.pop(context); // Close bottom sheet
+                        Navigator.pop(context); // CLOSE BOTTOM SHEET
                         Navigator.push(
                           context,
                           MaterialPageRoute(
@@ -368,9 +371,9 @@ class _NearbyListingsPageState extends State<NearbyListingsPage> {
 
   // ==========================================================================
   // 5. UI BUILD METHOD
-  // This code renders the visual layout of the Nearby Listings page
   // ==========================================================================
 
+  /// THIS METHOD RENDERS THE VISUAL LAYOUT OF THE NEARBY LISTINGS PAGE.
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -379,7 +382,7 @@ class _NearbyListingsPageState extends State<NearbyListingsPage> {
         title: 'Nearby Listings',
         showBackButton: true,
         actions: [
-          // Badge showing the total count of filtered nearby listings
+          // BADGE SHOWING THE TOTAL COUNT OF FILTERED NEARBY LISTINGS.
           Container(
             margin: const EdgeInsets.only(right: 16),
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -404,9 +407,9 @@ class _NearbyListingsPageState extends State<NearbyListingsPage> {
         ],
       ),
       body: isLoading
-          // Show loading spinner while fetching and filtering data
+          // SHOW LOADING SPINNER WHILE FETCHING AND FILTERING DATA.
           ? const Center(child: CircularProgressIndicator(color: Colors.green))
-          // Show empty state specifically mentioning the 1km radius
+          // SHOW EMPTY STATE SPECIFICALLY MENTIONING THE 1KM RADIUS.
           : listings.isEmpty
           ? const Center(
               child: Column(
@@ -426,7 +429,7 @@ class _NearbyListingsPageState extends State<NearbyListingsPage> {
                 ],
               ),
             )
-          // Show the scrollable list of strictly filtered listings
+          // SHOW THE SCROLLABLE LIST OF STRICTLY FILTERED LISTINGS.
           : RefreshIndicator(
               onRefresh: _fetchActiveListings,
               child: ListView.builder(
@@ -448,7 +451,7 @@ class _NearbyListingsPageState extends State<NearbyListingsPage> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // Horizontal Image Slider on the Card
+                        // HORIZONTAL IMAGE SLIDER ON THE CARD.
                         if (item['images'] != null &&
                             (item['images'] as List).isNotEmpty)
                           SizedBox(
@@ -506,7 +509,7 @@ class _NearbyListingsPageState extends State<NearbyListingsPage> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              // Top Row: Category Chip and Exact Distance
+                              // TOP ROW: CATEGORY CHIP AND EXACT DISTANCE.
                               Row(
                                 mainAxisAlignment:
                                     MainAxisAlignment.spaceBetween,
@@ -528,7 +531,7 @@ class _NearbyListingsPageState extends State<NearbyListingsPage> {
                                       ),
                                     ),
                                   ),
-                                  // ✅ Displays the exact calculated distance
+                                  // DISPLAYS THE EXACT CALCULATED DISTANCE.
                                   Text(
                                     '📍 ${(item['distance'] as double).toStringAsFixed(2)} km',
                                     style: TextStyle(
@@ -541,7 +544,7 @@ class _NearbyListingsPageState extends State<NearbyListingsPage> {
                               ),
                               const SizedBox(height: 12),
 
-                              // Listing Details
+                              // LISTING DETAILS.
                               Text(
                                 item['householdName'] ?? 'Anonymous Household',
                                 style: const TextStyle(
@@ -566,7 +569,7 @@ class _NearbyListingsPageState extends State<NearbyListingsPage> {
                               ),
                               const SizedBox(height: 12),
 
-                              // Bottom Row: Date and Place Bid Button
+                              // BOTTOM ROW: DATE AND PLACE BID BUTTON.
                               Row(
                                 mainAxisAlignment:
                                     MainAxisAlignment.spaceBetween,

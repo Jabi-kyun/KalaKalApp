@@ -3,6 +3,13 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import '../widgets/kala_kal_app_bar.dart';
 
+// ============================================================================
+// WIDGET CLASS
+// ============================================================================
+
+// THIS CLASS DEFINES THE LOCATION PICKER PAGE.
+// IT ALLOWS USERS TO VISUALLY SELECT A PICKUP LOCATION ON AN INTERACTIVE MAP
+// CENTERED ON LEGAZPI CITY, AND RETURNS THE CHOSEN COORDINATES.
 class LocationPickerPage extends StatefulWidget {
   const LocationPickerPage({super.key});
 
@@ -11,12 +18,24 @@ class LocationPickerPage extends StatefulWidget {
 }
 
 class _LocationPickerPageState extends State<LocationPickerPage> {
+  // ==========================================================================
+  // 1. STATE VARIABLES
+  // ==========================================================================
+
+  // THESE HOLD THE MAP CONTROLLER AND THE SELECTED GPS COORDINATES.
   final MapController _mapController = MapController();
 
-  // Legazpi City Coordinates
+  // LEGAZPI CITY CENTER COORDINATES.
   final LatLng _legazpiCenter = const LatLng(13.1391, 123.7437);
   LatLng _selectedLocation = const LatLng(13.1391, 123.7437);
 
+  // ==========================================================================
+  // 2. UI BUILD METHOD
+  // ==========================================================================
+
+  /// THIS METHOD RENDERS THE VISUAL LAYOUT OF THE LOCATION PICKER SCREEN.
+  /// IT DISPLAYS AN INTERACTIVE OPENSTREETMAP, A CENTERED PIN INDICATOR,
+  /// AND A CONFIRM BUTTON THAT RETURNS THE SELECTED LATLNG TO THE PREVIOUS SCREEN.
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -27,7 +46,7 @@ class _LocationPickerPageState extends State<LocationPickerPage> {
       ),
       body: Stack(
         children: [
-          // 1. The Map
+          // 1. THE INTERACTIVE MAP LAYER
           FlutterMap(
             mapController: _mapController,
             options: MapOptions(
@@ -35,7 +54,7 @@ class _LocationPickerPageState extends State<LocationPickerPage> {
               initialZoom: 14.0,
               onPositionChanged: (position, hasGesture) {
                 if (hasGesture) {
-                  // Update selected location as user drags the map
+                  // UPDATE SELECTED LOCATION AS USER DRAGS THE MAP
                   setState(() {
                     _selectedLocation = position.center!;
                   });
@@ -64,18 +83,19 @@ class _LocationPickerPageState extends State<LocationPickerPage> {
             ],
           ),
 
-          // 2. Center Pin Overlay (Visual indicator)
+          // 2. CENTER PIN OVERLAY (VISUAL INDICATOR)
           const Center(
             child: Icon(Icons.location_on, color: Colors.red, size: 50),
           ),
 
-          // 3. Confirm Button at the Bottom
+          // 3. CONFIRM BUTTON AT THE BOTTOM
           Positioned(
             left: 20,
             right: 20,
             bottom: 30,
             child: ElevatedButton.icon(
               onPressed: () {
+                // RETURN THE SELECTED LOCATION TO THE PREVIOUS SCREEN
                 Navigator.pop(context, _selectedLocation);
               },
               icon: const Icon(Icons.check_circle, color: Colors.white),

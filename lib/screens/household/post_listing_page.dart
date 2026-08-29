@@ -17,8 +17,8 @@ import '../widgets/primary_button.dart';
 // CONSTANTS & DATA
 // ============================================================================
 
-// List of Legazpi City Barangays with their exact GPS coordinates
-// (Used for the dropdown in the household profile settings)
+// LIST OF LEGAZPI CITY BARANGAYS WITH THEIR EXACT GPS COORDINATES.
+// THIS IS USED FOR THE DROPDOWN IN THE HOUSEHOLD PROFILE SETTINGS.
 final List<Map<String, dynamic>> legazpiBarangays = [
   {'name': 'Albay District', 'lat': 13.1485, 'lng': 123.7360},
   {'name': 'EM\'s / Rizal Street', 'lat': 13.1450, 'lng': 123.7320},
@@ -47,6 +47,9 @@ final List<Map<String, dynamic>> legazpiBarangays = [
 // WIDGET CLASS
 // ============================================================================
 
+// THIS CLASS DEFINES THE POST LISTING PAGE FOR HOUSEHOLDS.
+// IT ALLOWS USERS TO CREATE NEW SCRAP LISTINGS OR EDIT EXISTING ONES,
+// INCLUDING CAPTURING LOCATION AND UPLOADING IMAGES.
 class PostListingPage extends StatefulWidget {
   final Map<String, dynamic>? existingListing;
   const PostListingPage({super.key, this.existingListing});
@@ -58,20 +61,18 @@ class PostListingPage extends StatefulWidget {
 class _PostListingPageState extends State<PostListingPage> {
   // ==========================================================================
   // 1. STATE VARIABLES
-  // These hold the current data of the form, loading states, and location
   // ==========================================================================
 
-  final _formKey = GlobalKey<FormState>(); // Validates the form inputs
+  // THESE HOLD THE FORM DATA, LOADING STATES, CURRENT LOCATION, AND UPLOADED IMAGES IN BASE64 FORMAT.
+  final _formKey = GlobalKey<FormState>();
   final _quantityController = TextEditingController();
   final _descriptionController = TextEditingController();
 
   String _selectedCategory = 'Plastic';
-  bool _isLoading = false; // Shows loading spinner on the submit button
-  bool _isLocationLoading =
-      false; // Shows loading spinner on the location button
-  Position? _currentPosition; // Stores the captured GPS coordinates
-  List<String> _imagesBase64 =
-      []; // Stores up to 3 images converted to text strings
+  bool _isLoading = false;
+  bool _isLocationLoading = false;
+  Position? _currentPosition;
+  List<String> _imagesBase64 = [];
 
   final List<String> _categories = [
     'Plastic',
@@ -84,7 +85,7 @@ class _PostListingPageState extends State<PostListingPage> {
   ];
   final ImagePicker _picker = ImagePicker();
 
-  // Checks if the user is editing an existing post or creating a new one
+  // CHECKS IF THE USER IS EDITING AN EXISTING POST OR CREATING A NEW ONE
   bool get isEditMode => widget.existingListing != null;
 
   // ==========================================================================
@@ -94,7 +95,7 @@ class _PostListingPageState extends State<PostListingPage> {
   @override
   void initState() {
     super.initState();
-    // If editing, pre-fill the form with the existing listing's data
+    // IF EDITING, PRE-FILL THE FORM WITH THE EXISTING LISTING'S DATA
     if (isEditMode) {
       _selectedCategory = widget.existingListing!['category'] ?? 'Plastic';
       _quantityController.text = widget.existingListing!['quantity'] ?? '';
@@ -107,7 +108,7 @@ class _PostListingPageState extends State<PostListingPage> {
         _imagesBase64 = [widget.existingListing!['image']];
       }
 
-      // Load existing GPS coordinates if in edit mode
+      // LOAD EXISTING GPS COORDINATES IF IN EDIT MODE
       if (widget.existingListing!['location'] != null &&
           widget.existingListing!['location']['latitude'] != null) {
         final loc = widget.existingListing!['location'];
@@ -129,7 +130,7 @@ class _PostListingPageState extends State<PostListingPage> {
 
   @override
   void dispose() {
-    // Cleans up memory by disposing controllers when the page is closed
+    // CLEANS UP MEMORY BY DISPOSING CONTROLLERS WHEN THE PAGE IS CLOSED
     _quantityController.dispose();
     _descriptionController.dispose();
     super.dispose();
@@ -139,16 +140,16 @@ class _PostListingPageState extends State<PostListingPage> {
   // 3. HELPER FUNCTIONS
   // ==========================================================================
 
-  /// THIS CODE IS FOR THE DISTANCE CALCULATION.
-  /// It uses the Haversine formula to calculate the exact distance in kilometers
-  /// between two GPS coordinates (the household's post location and the collector's saved location).
+  /// THIS FUNCTION USES THE HAVERSINE FORMULA TO CALCULATE THE EXACT DISTANCE
+  /// IN KILOMETERS BETWEEN TWO GPS COORDINATES. IT IS USED TO FILTER COLLECTORS
+  /// WITHIN A STRICT 1KM RADIUS FOR PUSH NOTIFICATIONS.
   double _calculateDistance(
     double lat1,
     double lng1,
     double lat2,
     double lng2,
   ) {
-    const double R = 6371; // Earth's radius in km
+    const double R = 6371; // EARTH'S RADIUS IN KM
     final dLat = (lat2 - lat1) * math.pi / 180;
     final dLng = (lng2 - lng1) * math.pi / 180;
     final a =
@@ -165,7 +166,9 @@ class _PostListingPageState extends State<PostListingPage> {
   // 4. USER ACTION FUNCTIONS
   // ==========================================================================
 
-  // Handles picking images from the gallery, limiting to 3 images and checking file size
+  /// THIS FUNCTION HANDLES PICKING IMAGES FROM THE GALLERY.
+  /// IT ENFORCES A MAXIMUM LIMIT OF 3 IMAGES AND CHECKS THE TOTAL FILE SIZE
+  /// TO PREVENT FIRESTORE DOCUMENT SIZE ERRORS.
   Future<void> _pickImages() async {
     if (_imagesBase64.length >= 3) {
       TopSnackBar.show(
@@ -209,7 +212,8 @@ class _PostListingPageState extends State<PostListingPage> {
     }
   }
 
-  // Handles requesting GPS permissions and capturing the user's current location
+  /// THIS FUNCTION REQUESTS GPS PERMISSIONS AND CAPTURES THE USER'S CURRENT LOCATION.
+  /// IT HANDLES DENIED PERMISSIONS GRACEFULLY AND PROMPTS THE USER TO ENABLE LOCATION SERVICES.
   Future<void> _captureLocation() async {
     setState(() => _isLocationLoading = true);
     try {
@@ -222,7 +226,7 @@ class _PostListingPageState extends State<PostListingPage> {
         if (mounted)
           TopSnackBar.show(
             context,
-            message: 'Enable location in settings ⚙️',
+            message: 'Enable location in settings',
             backgroundColor: Colors.red,
           );
         setState(() => _isLocationLoading = false);
@@ -237,7 +241,7 @@ class _PostListingPageState extends State<PostListingPage> {
         setState(() => _isLocationLoading = false);
         TopSnackBar.show(
           context,
-          message: 'Location captured 📍',
+          message: 'Location captured',
           backgroundColor: Colors.green,
         );
       }
@@ -253,14 +257,15 @@ class _PostListingPageState extends State<PostListingPage> {
     }
   }
 
-  // THESE CODES ARE FOR THE PUSH NOTIFICATION FUNCTIONS.
-  // It queries all collectors, calculates the distance to each, filters strictly by 1km radius,
-  // and sends the API request to OneSignal to trigger the notification.
+  /// THIS FUNCTION HANDLES THE PUSH NOTIFICATION LOGIC.
+  /// IT QUERIES ALL COLLECTORS, CALCULATES THE DISTANCE TO EACH USING THE HAVERSINE FORMULA,
+  /// FILTERS STRICTLY BY A 1KM RADIUS, AND SENDS AN HTTP REQUEST TO THE ONESIGNAL API
+  /// TO TRIGGER PUSH NOTIFICATIONS TO NEARBY COLLECTORS.
   Future<void> _sendNearbyNotifications(String householdName) async {
     if (_currentPosition == null) return;
 
     try {
-      // 1. Get all collectors who have a OneSignal ID and a saved home location
+      // 1. GET ALL COLLECTORS WHO HAVE A ONESIGNAL ID AND A SAVED HOME LOCATION
       final collectorsSnapshot = await FirebaseFirestore.instance
           .collection('users')
           .where('role', isEqualTo: 'collector')
@@ -270,7 +275,7 @@ class _PostListingPageState extends State<PostListingPage> {
 
       List<String> targetPlayerIds = [];
 
-      // 2. Loop through collectors and calculate distance
+      // 2. LOOP THROUGH COLLECTORS AND CALCULATE DISTANCE
       for (var doc in collectorsSnapshot.docs) {
         final collectorData = doc.data();
         final homeLoc = collectorData['homeLocation'] as Map<String, dynamic>?;
@@ -283,17 +288,17 @@ class _PostListingPageState extends State<PostListingPage> {
             homeLoc['longitude'],
           );
 
-          // 3. STRICT 1KM RADIUS FILTER: Only add to notification list if within 1km
+          // 3. STRICT 1KM RADIUS FILTER: ONLY ADD TO NOTIFICATION LIST IF WITHIN 1KM
           if (distance <= 1.0) {
             targetPlayerIds.add(collectorData['onesignalId']);
             debugPrint(
-              '🔔 Collector ${collectorData['name']} is within ${distance.toStringAsFixed(1)}km.',
+              'Collector ${collectorData['name']} is within ${distance.toStringAsFixed(1)}km.',
             );
           }
         }
       }
 
-      // 4. Send the actual HTTP request to OneSignal API
+      // 4. SEND THE ACTUAL HTTP REQUEST TO ONESIGNAL API
       if (targetPlayerIds.isNotEmpty) {
         final String oneSignalAppId = dotenv.env['ONESIGNAL_APP_ID'] ?? '';
         final String oneSignalRestApiKey =
@@ -301,7 +306,7 @@ class _PostListingPageState extends State<PostListingPage> {
 
         if (oneSignalAppId.isEmpty || oneSignalRestApiKey.isEmpty) {
           debugPrint(
-            '⚠️ OneSignal keys missing from .env file. Notification skipped.',
+            'OneSignal keys missing from .env file. Notification skipped.',
           );
           return;
         }
@@ -316,7 +321,7 @@ class _PostListingPageState extends State<PostListingPage> {
           body: jsonEncode({
             'app_id': oneSignalAppId,
             'include_player_ids': targetPlayerIds,
-            'headings': {'en': 'New Scrap Nearby! ♻️'},
+            'headings': {'en': 'New Scrap Nearby!'},
             'contents': {
               'en':
                   '$householdName posted $_selectedCategory (${_quantityController.text}) nearby!',
@@ -326,19 +331,20 @@ class _PostListingPageState extends State<PostListingPage> {
 
         if (response.statusCode == 200) {
           debugPrint(
-            '✅ Notifications sent successfully to ${targetPlayerIds.length} collectors!',
+            'Notifications sent successfully to ${targetPlayerIds.length} collectors!',
           );
         } else {
-          debugPrint('❌ Failed to send notification: ${response.body}');
+          debugPrint('Failed to send notification: ${response.body}');
         }
       }
     } catch (e) {
-      debugPrint('❌ Error sending notification: $e');
+      debugPrint('Error sending notification: $e');
     }
   }
 
-  // THIS CODE HANDLES THE FINAL SUBMISSION OF THE LISTING.
-  // It validates the form, saves the data to Firestore, and triggers the notification function.
+  /// THIS FUNCTION HANDLES THE FINAL SUBMISSION OF THE LISTING.
+  /// IT VALIDATES THE FORM, CHECKS IMAGE SIZE LIMITS, SAVES THE DATA TO FIRESTORE,
+  /// AND TRIGGERS THE NEARBY NOTIFICATION FUNCTION FOR NEW LISTINGS.
   Future<void> _submitListing() async {
     if (!_formKey.currentState!.validate()) return;
     if (!isEditMode && _currentPosition == null) {
@@ -350,7 +356,7 @@ class _PostListingPageState extends State<PostListingPage> {
       return;
     }
 
-    // Check total image size limit (max 950KB to prevent Firestore document size errors)
+    // CHECK TOTAL IMAGE SIZE LIMIT (MAX 950KB TO PREVENT FIRESTORE DOCUMENT SIZE ERRORS)
     int totalSize = 0;
     for (var img in _imagesBase64) totalSize += base64Decode(img).length;
     if (totalSize > 950 * 1024) {
@@ -373,7 +379,7 @@ class _PostListingPageState extends State<PostListingPage> {
       };
 
       if (isEditMode) {
-        // Update existing listing in Firestore
+        // UPDATE EXISTING LISTING IN FIRESTORE
         await FirebaseFirestore.instance
             .collection('listings')
             .doc(widget.existingListing!['id'])
@@ -388,13 +394,13 @@ class _PostListingPageState extends State<PostListingPage> {
         if (mounted) {
           TopSnackBar.show(
             context,
-            message: 'Listing updated successfully! ✅',
+            message: 'Listing updated successfully!',
             backgroundColor: Colors.green,
           );
           Navigator.pop(context);
         }
       } else {
-        // Create new listing in Firestore
+        // CREATE NEW LISTING IN FIRESTORE
         final userDoc = await FirebaseFirestore.instance
             .collection('users')
             .doc(user.uid)
@@ -416,13 +422,13 @@ class _PostListingPageState extends State<PostListingPage> {
           'images': _imagesBase64,
         });
 
-        // Trigger the push notification function we defined above
+        // TRIGGER THE PUSH NOTIFICATION FUNCTION DEFINED ABOVE
         await _sendNearbyNotifications(householdName);
 
         if (mounted) {
           TopSnackBar.show(
             context,
-            message: 'Posted successfully! ♻️',
+            message: 'Posted successfully!',
             backgroundColor: Colors.green,
           );
           Navigator.pushReplacement(
@@ -432,7 +438,7 @@ class _PostListingPageState extends State<PostListingPage> {
         }
       }
     } catch (e) {
-      debugPrint('❌ Error posting listing: $e');
+      debugPrint('Error posting listing: $e');
       if (mounted) {
         String errorMsg = e.toString();
         if (errorMsg.contains('invalid-argument')) {
@@ -457,9 +463,11 @@ class _PostListingPageState extends State<PostListingPage> {
 
   // ==========================================================================
   // 5. UI BUILD METHOD
-  // This code renders the visual layout of the screen (Form, Inputs, Buttons)
   // ==========================================================================
 
+  /// THIS METHOD RENDERS THE VISUAL LAYOUT OF THE SCREEN.
+  /// IT INCLUDES THE FORM, IMAGE PICKER, INPUT FIELDS, LOCATION CAPTURE BUTTON,
+  /// AND THE SUBMIT BUTTON.
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -487,7 +495,7 @@ class _PostListingPageState extends State<PostListingPage> {
               ),
               const SizedBox(height: 16),
 
-              // --- Image Picker UI ---
+              // --- IMAGE PICKER UI ---
               const Text(
                 'Photos (Max 3)',
                 style: TextStyle(
@@ -582,7 +590,7 @@ class _PostListingPageState extends State<PostListingPage> {
               ),
               const SizedBox(height: 16),
 
-              // --- Category Dropdown UI ---
+              // --- CATEGORY DROPDOWN UI ---
               DropdownButtonFormField<String>(
                 value: _selectedCategory,
                 decoration: const InputDecoration(
@@ -600,7 +608,7 @@ class _PostListingPageState extends State<PostListingPage> {
               ),
               const SizedBox(height: 16),
 
-              // --- Quantity Input UI ---
+              // --- QUANTITY INPUT UI ---
               TextFormField(
                 controller: _quantityController,
                 decoration: const InputDecoration(
@@ -614,7 +622,7 @@ class _PostListingPageState extends State<PostListingPage> {
               ),
               const SizedBox(height: 16),
 
-              // --- Description Input UI ---
+              // --- DESCRIPTION INPUT UI ---
               TextFormField(
                 controller: _descriptionController,
                 maxLines: 3,
@@ -629,7 +637,7 @@ class _PostListingPageState extends State<PostListingPage> {
               ),
               const SizedBox(height: 24),
 
-              // --- Location Capture UI ---
+              // --- LOCATION CAPTURE UI ---
               const Text(
                 'Pickup Location',
                 style: TextStyle(
@@ -656,7 +664,7 @@ class _PostListingPageState extends State<PostListingPage> {
                       ? 'Getting...'
                       : (_currentPosition == null
                             ? ' Capture Current Location'
-                            : '✅ Location Captured'),
+                            : 'Location Captured'),
                   style: const TextStyle(fontWeight: FontWeight.bold),
                 ),
                 style: ElevatedButton.styleFrom(
@@ -681,7 +689,7 @@ class _PostListingPageState extends State<PostListingPage> {
 
               const SizedBox(height: 32),
 
-              // --- Submit Button UI ---
+              // --- SUBMIT BUTTON UI ---
               PrimaryButton(
                 text: isEditMode ? 'UPDATE LISTING' : 'POST LISTING',
                 onPressed: _submitListing,

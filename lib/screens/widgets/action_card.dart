@@ -1,6 +1,14 @@
 import 'package:flutter/material.dart';
 
+// ============================================================================
+// WIDGET CLASS
+// ============================================================================
+
+// THIS CLASS DEFINES A REUSABLE ACTION CARD WIDGET.
+// IT DISPLAYS AN ICON, TITLE, SUBTITLE, AND AN OPTIONAL NOTIFICATION BADGE,
+// COMMONLY USED IN DASHBOARDS FOR NAVIGATION AND QUICK ACTIONS.
 class ActionCard extends StatelessWidget {
+  // THESE ARE THE REQUIRED AND OPTIONAL PROPERTIES FOR THE ACTION CARD.
   final IconData icon;
   final String title;
   final String subtitle;
@@ -22,6 +30,7 @@ class ActionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // THIS METHOD RENDERS THE VISUAL LAYOUT OF THE ACTION CARD.
     return GestureDetector(
       onTap: onTap,
       child: Container(
@@ -40,6 +49,7 @@ class ActionCard extends StatelessWidget {
         child: Stack(
           clipBehavior: Clip.none,
           children: [
+            // MAIN CONTENT: ICON, TITLE, AND SUBTITLE.
             Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
@@ -61,7 +71,8 @@ class ActionCard extends StatelessWidget {
                 ),
               ],
             ),
-            // Notification Badge
+
+            // NOTIFICATION BADGE: DISPLAYS IF ENABLED AND COUNT IS GREATER THAN ZERO.
             if (badge && badgeCount != null && badgeCount! > 0)
               Positioned(
                 right: -8,

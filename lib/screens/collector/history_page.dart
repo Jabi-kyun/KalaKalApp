@@ -10,6 +10,8 @@ import '../widgets/status_chip.dart';
 // WIDGET CLASS
 // ============================================================================
 
+// THIS CLASS DEFINES THE COLLECTOR HISTORY PAGE.
+// IT ALLOWS COLLECTORS TO VIEW THEIR COMPLETED PICKUPS AND THE RATINGS RECEIVED.
 class CollectorHistoryPage extends StatefulWidget {
   const CollectorHistoryPage({super.key});
 
@@ -20,9 +22,9 @@ class CollectorHistoryPage extends StatefulWidget {
 class _CollectorHistoryPageState extends State<CollectorHistoryPage> {
   // ==========================================================================
   // 1. STATE VARIABLES
-  // These hold the loading state and the list of the collector's completed jobs
   // ==========================================================================
 
+  // THESE HOLD THE LOADING STATE AND THE LIST OF THE COLLECTOR'S COMPLETED JOBS.
   bool isLoading = true;
   List<Map<String, dynamic>> history = [];
 
@@ -33,7 +35,7 @@ class _CollectorHistoryPageState extends State<CollectorHistoryPage> {
   @override
   void initState() {
     super.initState();
-    // Automatically fetch the collection history as soon as the page opens
+    // AUTOMATICALLY FETCH THE COLLECTION HISTORY AS SOON AS THE PAGE OPENS.
     _fetchHistory();
   }
 
@@ -41,51 +43,51 @@ class _CollectorHistoryPageState extends State<CollectorHistoryPage> {
   // 3. DATA FETCHING FUNCTIONS
   // ==========================================================================
 
-  /// THESE CODES ARE FOR FETCHING THE COLLECTOR'S COMPLETED HISTORY.
-  /// Since Firestore doesn't easily allow querying nested map fields (like acceptedBid.collectorUid),
-  /// this function fetches all 'Finished' listings and filters them locally in Dart
-  /// to only show the jobs where this specific collector won the bid.
+  /// THIS FUNCTION FETCHES THE COLLECTOR'S COMPLETED HISTORY.
+  /// SINCE FIRESTORE DOES NOT EASILY ALLOW QUERYING NESTED MAP FIELDS (LIKE ACCEPTEDBID.COLLECTORUID),
+  /// THIS FUNCTION FETCHES ALL 'FINISHED' LISTINGS AND FILTERS THEM LOCALLY IN DART
+  /// TO ONLY SHOW THE JOBS WHERE THIS SPECIFIC COLLECTOR WON THE BID.
   Future<void> _fetchHistory() async {
     setState(() => isLoading = true);
     try {
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) return;
 
-      // 1. Fetch all listings that have been marked as 'Finished'
+      // 1. FETCH ALL LISTINGS THAT HAVE BEEN MARKED AS 'FINISHED'.
       final snapshot = await FirebaseFirestore.instance
           .collection('listings')
           .where('status', isEqualTo: 'Finished')
           .orderBy('completedAt', descending: true)
           .get();
 
-      // 2. Filter the results locally to match the current collector's UID
+      // 2. FILTER THE RESULTS LOCALLY TO MATCH THE CURRENT COLLECTOR'S UID.
       setState(() {
         history = snapshot.docs
             .where((doc) {
               final data = doc.data();
               final acceptedBid = data['acceptedBid'] as Map<String, dynamic>?;
-              // Only keep the listing if this collector was the one who won the bid
+              // ONLY KEEP THE LISTING IF THIS COLLECTOR WAS THE ONE WHO WON THE BID.
               return acceptedBid?['collectorUid'] == user.uid;
             })
             .map((doc) {
               final data = doc.data();
-              data['id'] = doc.id; // Attach document ID for reference
+              data['id'] = doc.id; // ATTACH DOCUMENT ID FOR REFERENCE.
               return data;
             })
             .toList();
-        isLoading = false; // Hide loading spinner
+        isLoading = false; // HIDE LOADING SPINNER.
       });
     } catch (e) {
-      debugPrint('❌ Error fetching collector history: $e');
+      debugPrint('Error fetching collector history: $e');
       setState(() => isLoading = false);
     }
   }
 
   // ==========================================================================
   // 4. UI BUILD METHOD
-  // This code renders the visual layout of the Collector's History page
   // ==========================================================================
 
+  /// THIS METHOD RENDERS THE VISUAL LAYOUT OF THE COLLECTOR'S HISTORY PAGE.
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -95,16 +97,16 @@ class _CollectorHistoryPageState extends State<CollectorHistoryPage> {
         showBackButton: true,
       ),
       body: isLoading
-          // Show loading spinner while fetching data
+          // SHOW LOADING SPINNER WHILE FETCHING DATA.
           ? const Center(child: CircularProgressIndicator(color: Colors.green))
-          // Show empty state if the collector hasn't finished any jobs yet
+          // SHOW EMPTY STATE IF THE COLLECTOR HASN'T FINISHED ANY JOBS YET.
           : history.isEmpty
           ? const EmptyState(
               icon: Icons.history,
               title: 'No completed collections yet.',
               subtitle: 'Your finished pickups will appear here.',
             )
-          // Show the scrollable list of completed jobs with pull-to-refresh
+          // SHOW THE SCROLLABLE LIST OF COMPLETED JOBS WITH PULL-TO-REFRESH.
           : RefreshIndicator(
               onRefresh: _fetchHistory,
               child: ListView.builder(
@@ -113,7 +115,7 @@ class _CollectorHistoryPageState extends State<CollectorHistoryPage> {
                 itemBuilder: (context, index) {
                   final item = history[index];
 
-                  // Format the Firestore Timestamp into a readable date string
+                  // FORMAT THE FIRESTORE TIMESTAMP INTO A READABLE DATE STRING.
                   final date = item['completedAt'] != null
                       ? DateFormat(
                           'MMM dd, yyyy',
@@ -125,7 +127,7 @@ class _CollectorHistoryPageState extends State<CollectorHistoryPage> {
                   final amount = item['acceptedBid']?['amount'] ?? 0;
                   final collectorRating =
                       item['collectorRating'] ??
-                      0; // Rating given by the household
+                      0; // RATING GIVEN BY THE HOUSEHOLD.
 
                   return Card(
                     elevation: 2,
@@ -137,7 +139,7 @@ class _CollectorHistoryPageState extends State<CollectorHistoryPage> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          // Top Row: Category and Status Chips
+                          // TOP ROW: CATEGORY AND STATUS CHIPS.
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
@@ -153,7 +155,7 @@ class _CollectorHistoryPageState extends State<CollectorHistoryPage> {
                           ),
                           const SizedBox(height: 12),
 
-                          // Household Info
+                          // HOUSEHOLD INFO.
                           Text(
                             'Collected from: $householdName',
                             style: const TextStyle(
@@ -168,7 +170,7 @@ class _CollectorHistoryPageState extends State<CollectorHistoryPage> {
                           ),
                           const SizedBox(height: 12),
 
-                          // Final Earnings Box
+                          // FINAL EARNINGS BOX.
                           Container(
                             padding: const EdgeInsets.all(12),
                             decoration: BoxDecoration(
@@ -184,7 +186,7 @@ class _CollectorHistoryPageState extends State<CollectorHistoryPage> {
                                   style: TextStyle(color: Colors.grey),
                                 ),
                                 Text(
-                                  '₱$amount',
+                                  'P$amount',
                                   style: const TextStyle(
                                     fontSize: 18,
                                     fontWeight: FontWeight.bold,
@@ -195,7 +197,7 @@ class _CollectorHistoryPageState extends State<CollectorHistoryPage> {
                             ),
                           ),
 
-                          // Household Rating (Only shows if the household actually rated the collector)
+                          // HOUSEHOLD RATING (ONLY SHOWS IF THE HOUSEHOLD ACTUALLY RATED THE COLLECTOR).
                           if (collectorRating > 0) ...[
                             const SizedBox(height: 12),
                             Row(
@@ -220,7 +222,7 @@ class _CollectorHistoryPageState extends State<CollectorHistoryPage> {
                           ],
 
                           const SizedBox(height: 8),
-                          // Date of completion
+                          // DATE OF COMPLETION.
                           Text(
                             date,
                             style: const TextStyle(

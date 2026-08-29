@@ -12,6 +12,8 @@ import '../widgets/star_rating.dart';
 // WIDGET CLASS
 // ============================================================================
 
+// THIS CLASS DEFINES THE HOUSEHOLD HISTORY PAGE.
+// IT ALLOWS USERS TO VIEW THEIR COMPLETED SALES AND RATE THE COLLECTORS.
 class HouseholdHistoryPage extends StatefulWidget {
   const HouseholdHistoryPage({super.key});
 
@@ -22,9 +24,9 @@ class HouseholdHistoryPage extends StatefulWidget {
 class _HouseholdHistoryPageState extends State<HouseholdHistoryPage> {
   // ==========================================================================
   // 1. STATE VARIABLES
-  // These hold the loading state and the list of the household's completed sales
   // ==========================================================================
 
+  // THESE HOLD THE LOADING STATE AND THE LIST OF THE HOUSEHOLD'S COMPLETED SALES.
   bool isLoading = true;
   List<Map<String, dynamic>> history = [];
 
@@ -35,7 +37,7 @@ class _HouseholdHistoryPageState extends State<HouseholdHistoryPage> {
   @override
   void initState() {
     super.initState();
-    // Automatically fetch the sales history as soon as the page opens
+    // AUTOMATICALLY FETCH THE SALES HISTORY AS SOON AS THE PAGE OPENS.
     _fetchHistory();
   }
 
@@ -43,10 +45,10 @@ class _HouseholdHistoryPageState extends State<HouseholdHistoryPage> {
   // 3. DATA FETCHING FUNCTIONS
   // ==========================================================================
 
-  /// THESE CODES ARE FOR FETCHING THE HOUSEHOLD'S COMPLETED SALES HISTORY.
-  /// It queries the Firestore 'listings' collection, strictly filtering for
-  /// documents where the 'householdUid' matches the current user AND the
-  /// 'status' is 'Finished'. It then orders them by completion date (newest first).
+  /// THIS FUNCTION FETCHES THE HOUSEHOLD'S COMPLETED SALES HISTORY.
+  /// IT QUERIES THE FIRESTORE 'LISTINGS' COLLECTION, STRICTLY FILTERING FOR
+  /// DOCUMENTS WHERE THE 'HOUSEHOLDUID' MATCHES THE CURRENT USER AND THE
+  /// 'STATUS' IS 'FINISHED'. IT THEN ORDERS THEM BY COMPLETION DATE (NEWEST FIRST).
   Future<void> _fetchHistory() async {
     setState(() => isLoading = true);
     try {
@@ -63,38 +65,38 @@ class _HouseholdHistoryPageState extends State<HouseholdHistoryPage> {
       setState(() {
         history = snapshot.docs.map((doc) {
           final data = doc.data();
-          data['id'] = doc.id; // Attach document ID for reference
+          data['id'] = doc.id; // ATTACH DOCUMENT ID FOR REFERENCE
           return data;
         }).toList();
-        isLoading = false; // Hide loading spinner
+        isLoading = false; // HIDE LOADING SPINNER
       });
     } catch (e) {
-      debugPrint('❌ Error fetching household history: $e');
+      debugPrint('Error fetching household history: $e');
       setState(() => isLoading = false);
     }
   }
 
   // ==========================================================================
   // 4. UI BUILD METHOD
-  // This code renders the visual layout of the Household's Sales History page
   // ==========================================================================
 
+  /// THIS METHOD RENDERS THE VISUAL LAYOUT OF THE HOUSEHOLD'S SALES HISTORY PAGE.
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF2F7F3),
       appBar: const KalaKalAppBar(title: 'Sales History', showBackButton: true),
       body: isLoading
-          // Show loading spinner while fetching data
+          // SHOW LOADING SPINNER WHILE FETCHING DATA
           ? const Center(child: CircularProgressIndicator(color: Colors.green))
-          // Show empty state if the household hasn't completed any sales yet
+          // SHOW EMPTY STATE IF THE HOUSEHOLD HASN'T COMPLETED ANY SALES YET
           : history.isEmpty
           ? const EmptyState(
               icon: Icons.history,
               title: 'No completed sales yet.',
               subtitle: 'Your finished transactions will appear here.',
             )
-          // Show the scrollable list of completed sales with pull-to-refresh
+          // SHOW THE SCROLLABLE LIST OF COMPLETED SALES WITH PULL-TO-REFRESH
           : RefreshIndicator(
               onRefresh: _fetchHistory,
               child: ListView.builder(
@@ -103,7 +105,7 @@ class _HouseholdHistoryPageState extends State<HouseholdHistoryPage> {
                 itemBuilder: (context, index) {
                   final item = history[index];
 
-                  // Format the Firestore Timestamp into a readable date string
+                  // FORMAT THE FIRESTORE TIMESTAMP INTO A READABLE DATE STRING
                   final date = item['completedAt'] != null
                       ? DateFormat(
                           'MMM dd, yyyy',
@@ -116,7 +118,7 @@ class _HouseholdHistoryPageState extends State<HouseholdHistoryPage> {
                       item['acceptedBid']?['collectorUid'] ?? '';
                   final amount = item['acceptedBid']?['amount'] ?? 0;
                   final householdRating =
-                      item['householdRating'] ?? 0; // Check if already rated
+                      item['householdRating'] ?? 0; // CHECK IF ALREADY RATED
 
                   return Card(
                     elevation: 2,
@@ -128,7 +130,7 @@ class _HouseholdHistoryPageState extends State<HouseholdHistoryPage> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          // Top Row: Category and Status Chips
+                          // TOP ROW: CATEGORY AND STATUS CHIPS
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
@@ -144,7 +146,7 @@ class _HouseholdHistoryPageState extends State<HouseholdHistoryPage> {
                           ),
                           const SizedBox(height: 12),
 
-                          // Collector and Quantity Info
+                          // COLLECTOR AND QUANTITY INFO
                           Text(
                             'Sold to: $collectorName',
                             style: const TextStyle(
@@ -159,7 +161,7 @@ class _HouseholdHistoryPageState extends State<HouseholdHistoryPage> {
                           ),
                           const SizedBox(height: 12),
 
-                          // Final Earnings Box
+                          // FINAL EARNINGS BOX
                           Container(
                             padding: const EdgeInsets.all(12),
                             decoration: BoxDecoration(
@@ -175,7 +177,7 @@ class _HouseholdHistoryPageState extends State<HouseholdHistoryPage> {
                                   style: TextStyle(color: Colors.grey),
                                 ),
                                 Text(
-                                  '₱$amount',
+                                  'P$amount',
                                   style: const TextStyle(
                                     fontSize: 18,
                                     fontWeight: FontWeight.bold,
@@ -187,10 +189,9 @@ class _HouseholdHistoryPageState extends State<HouseholdHistoryPage> {
                           ),
                           const SizedBox(height: 12),
 
-                          // --- RATING SECTION ---
-                          // Conditionally renders either the existing rating OR the "Rate Collector" button
+                          // RATING SECTION: CONDITIONALLY RENDERS EITHER THE EXISTING RATING OR THE "RATE COLLECTOR" BUTTON
                           if (householdRating > 0)
-                            // If already rated, show the stars
+                            // IF ALREADY RATED, SHOW THE STARS
                             Row(
                               children: [
                                 const Text(
@@ -204,14 +205,14 @@ class _HouseholdHistoryPageState extends State<HouseholdHistoryPage> {
                               ],
                             )
                           else
-                            // If not yet rated, show the button to open the Rating Dialog
+                            // IF NOT YET RATED, SHOW THE BUTTON TO OPEN THE RATING DIALOG
                             SizedBox(
                               width: double.infinity,
                               child: OutlinedButton.icon(
                                 onPressed: collectorUid.isEmpty
                                     ? null
                                     : () async {
-                                        // Open the rating dialog and pass the collector's details
+                                        // OPEN THE RATING DIALOG AND PASS THE COLLECTOR'S DETAILS
                                         await RatingDialog.show(
                                           context: context,
                                           targetUserId: collectorUid,
@@ -219,7 +220,7 @@ class _HouseholdHistoryPageState extends State<HouseholdHistoryPage> {
                                           role: 'Collector',
                                           listingId: item['id'],
                                         );
-                                        // Refresh the list to show the new rating immediately
+                                        // REFRESH THE LIST TO SHOW THE NEW RATING IMMEDIATELY
                                         _fetchHistory();
                                       },
                                 icon: const Icon(
@@ -237,7 +238,7 @@ class _HouseholdHistoryPageState extends State<HouseholdHistoryPage> {
                             ),
 
                           const SizedBox(height: 8),
-                          // Date of completion
+                          // DATE OF COMPLETION
                           Text(
                             date,
                             style: const TextStyle(

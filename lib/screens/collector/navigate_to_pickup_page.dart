@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:map_launcher/map_launcher.dart';
 import '../widgets/kala_kal_app_bar.dart';
-import '../widgets/top_snackbar.dart'; // ✅ Added for consistent notifications
+import '../widgets/top_snackbar.dart';
 
 // ============================================================================
 // WIDGET CLASS
 // ============================================================================
 
+// THIS CLASS DEFINES THE NAVIGATE TO PICKUP PAGE FOR COLLECTORS.
+// IT ALLOWS COLLECTORS TO CHOOSE THEIR PREFERRED MAP APPLICATION TO NAVIGATE
+// TO THE HOUSEHOLD'S LOCATION USING EXACT GPS COORDINATES.
 class NavigateToPickupPage extends StatefulWidget {
   final String householdName;
   final String address;
@@ -28,9 +31,9 @@ class NavigateToPickupPage extends StatefulWidget {
 class _NavigateToPickupPageState extends State<NavigateToPickupPage> {
   // ==========================================================================
   // 1. STATE VARIABLES
-  // These hold the loading state and the list of map apps found on the device
   // ==========================================================================
 
+  // THESE HOLD THE LOADING STATE AND THE LIST OF MAP APPS FOUND ON THE DEVICE.
   bool _isLoading = true;
   List<AvailableMap> _installedMaps = [];
 
@@ -41,7 +44,7 @@ class _NavigateToPickupPageState extends State<NavigateToPickupPage> {
   @override
   void initState() {
     super.initState();
-    // Automatically detect which map apps are installed when the page opens
+    // AUTOMATICALLY DETECT WHICH MAP APPS ARE INSTALLED WHEN THE PAGE OPENS.
     _getInstalledMaps();
   }
 
@@ -49,25 +52,25 @@ class _NavigateToPickupPageState extends State<NavigateToPickupPage> {
   // 3. DATA FETCHING & USER ACTIONS
   // ==========================================================================
 
-  /// THESE CODES ARE FOR DETECTING INSTALLED MAP APPLICATIONS.
-  /// It uses the map_launcher package to scan the device for available navigation
-  /// apps (like Google Maps or Waze) so the collector can choose their preferred one.
+  /// THIS FUNCTION DETECTS INSTALLED MAP APPLICATIONS.
+  /// IT USES THE MAP_LAUNCHER PACKAGE TO SCAN THE DEVICE FOR AVAILABLE NAVIGATION
+  /// APPS (LIKE GOOGLE MAPS OR WAZE) SO THE COLLECTOR CAN CHOOSE THEIR PREFERRED ONE.
   Future<void> _getInstalledMaps() async {
     try {
       final maps = await MapLauncher.installedMaps;
       setState(() {
         _installedMaps = maps;
-        _isLoading = false; // Hide loading spinner once apps are detected
+        _isLoading = false; // HIDE LOADING SPINNER ONCE APPS ARE DETECTED
       });
     } catch (e) {
-      debugPrint('❌ Error fetching installed maps: $e');
+      debugPrint('Error fetching installed maps: $e');
       setState(() => _isLoading = false);
     }
   }
 
-  /// THESE CODES ARE FOR LAUNCHING EXTERNAL NAVIGATION.
-  /// It takes the selected map app and passes the household's exact GPS coordinates
-  /// and name to open turn-by-turn directions directly in that external app.
+  /// THIS FUNCTION LAUNCHES EXTERNAL NAVIGATION.
+  /// IT TAKES THE SELECTED MAP APP AND PASSES THE HOUSEHOLD'S EXACT GPS COORDINATES
+  /// AND NAME TO OPEN TURN-BY-TURN DIRECTIONS DIRECTLY IN THAT EXTERNAL APP.
   Future<void> _startNavigation(AvailableMap map) async {
     try {
       await map.showDirections(
@@ -87,12 +90,12 @@ class _NavigateToPickupPageState extends State<NavigateToPickupPage> {
 
   // ==========================================================================
   // 4. UI BUILD METHOD
-  // This code renders the visual layout of the Navigation Selection screen
   // ==========================================================================
 
+  /// THIS METHOD RENDERS THE VISUAL LAYOUT OF THE NAVIGATION SELECTION SCREEN.
   @override
   Widget build(BuildContext context) {
-    // Show a loading spinner while scanning for installed map apps
+    // SHOW A LOADING SPINNER WHILE SCANNING FOR INSTALLED MAP APPS.
     if (_isLoading) {
       return const Scaffold(
         backgroundColor: Color(0xFFF2F7F3),
@@ -112,7 +115,7 @@ class _NavigateToPickupPageState extends State<NavigateToPickupPage> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              // Large Navigation Icon at the top
+              // LARGE NAVIGATION ICON AT THE TOP.
               Container(
                 padding: const EdgeInsets.all(24),
                 decoration: BoxDecoration(
@@ -127,7 +130,7 @@ class _NavigateToPickupPageState extends State<NavigateToPickupPage> {
               ),
               const SizedBox(height: 32),
 
-              // Household Name and Address Display
+              // HOUSEHOLD NAME AND ADDRESS DISPLAY.
               Text(
                 'Navigate to ${widget.householdName}',
                 style: const TextStyle(
@@ -147,7 +150,7 @@ class _NavigateToPickupPageState extends State<NavigateToPickupPage> {
               ),
               const SizedBox(height: 48),
 
-              // ERROR STATE: Shown if no map apps are found on the device
+              // ERROR STATE: SHOWN IF NO MAP APPS ARE FOUND ON THE DEVICE.
               if (_installedMaps.isEmpty)
                 Container(
                   padding: const EdgeInsets.all(16),
@@ -172,7 +175,7 @@ class _NavigateToPickupPageState extends State<NavigateToPickupPage> {
                     ],
                   ),
                 )
-              // SUCCESS STATE: Dynamically generates buttons for every installed map app
+              // SUCCESS STATE: DYNAMICALLY GENERATES BUTTONS FOR EVERY INSTALLED MAP APP.
               else
                 ..._installedMaps.map((map) {
                   final isGoogle = map.mapType == MapType.google;
@@ -182,7 +185,7 @@ class _NavigateToPickupPageState extends State<NavigateToPickupPage> {
                       width: double.infinity,
                       child: ElevatedButton.icon(
                         onPressed: () => _startNavigation(map),
-                        // Uses the official icon provided by the map_launcher package
+                        // USES THE OFFICIAL ICON PROVIDED BY THE MAP_LAUNCHER PACKAGE.
                         icon: Image.asset(map.icon, width: 24, height: 24),
                         label: Text(
                           'Open in ${map.mapName}',
@@ -191,7 +194,7 @@ class _NavigateToPickupPageState extends State<NavigateToPickupPage> {
                             fontWeight: FontWeight.bold,
                           ),
                         ),
-                        // Colors the button blue for Google Maps, green for others (like Waze)
+                        // COLORS THE BUTTON BLUE FOR GOOGLE MAPS, GREEN FOR OTHERS (LIKE WAZE).
                         style: ElevatedButton.styleFrom(
                           backgroundColor: isGoogle
                               ? Colors.blue

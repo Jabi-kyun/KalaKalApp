@@ -8,6 +8,8 @@ import '../widgets/top_snackbar.dart';
 // WIDGET CLASS
 // ============================================================================
 
+// THIS CLASS DEFINES THE ADMIN MANAGE USERS PAGE.
+// IT ALLOWS ADMINS TO VIEW ALL REGISTERED USER ACCOUNTS AND DELETE THEM IF NECESSARY.
 class AdminManageUsersPage extends StatefulWidget {
   const AdminManageUsersPage({super.key});
 
@@ -18,9 +20,9 @@ class AdminManageUsersPage extends StatefulWidget {
 class _AdminManageUsersPageState extends State<AdminManageUsersPage> {
   // ==========================================================================
   // 1. STATE VARIABLES
-  // These hold the loading state and the list of fetched user accounts
   // ==========================================================================
 
+  // THESE HOLD THE LOADING STATE AND THE LIST OF FETCHED USER ACCOUNTS.
   bool isLoading = true;
   List<Map<String, dynamic>> allUsers = [];
 
@@ -31,7 +33,7 @@ class _AdminManageUsersPageState extends State<AdminManageUsersPage> {
   @override
   void initState() {
     super.initState();
-    // Automatically fetch the user list as soon as the page opens
+    // AUTOMATICALLY FETCH THE USER LIST AS SOON AS THE PAGE OPENS.
     _fetchUsers();
   }
 
@@ -39,10 +41,10 @@ class _AdminManageUsersPageState extends State<AdminManageUsersPage> {
   // 3. DATA FETCHING & USER ACTIONS
   // ==========================================================================
 
-  /// THESE CODES ARE FOR FETCHING ALL USERS.
-  /// It queries the Firestore 'users' collection, attaches the document ID
-  /// to each user object (needed for deletion), and updates the UI with
-  /// the complete list of registered accounts.
+  /// THIS FUNCTION FETCHES ALL USERS.
+  /// IT QUERIES THE FIRESTORE 'USERS' COLLECTION, ATTACHES THE DOCUMENT ID
+  /// TO EACH USER OBJECT (NEEDED FOR DELETION), AND UPDATES THE UI WITH
+  /// THE COMPLETE LIST OF REGISTERED ACCOUNTS.
   Future<void> _fetchUsers() async {
     setState(() => isLoading = true);
     try {
@@ -53,21 +55,21 @@ class _AdminManageUsersPageState extends State<AdminManageUsersPage> {
       setState(() {
         allUsers = snapshot.docs.map((doc) {
           final data = doc.data();
-          data['id'] = doc.id; // Attach the Firestore document ID for deletion
+          data['id'] = doc.id; // ATTACH THE FIRESTORE DOCUMENT ID FOR DELETION
           return data;
         }).toList();
         isLoading = false;
       });
     } catch (e) {
-      debugPrint('❌ Error fetching admin users: $e');
+      debugPrint('Error fetching admin users: $e');
       setState(() => isLoading = false);
     }
   }
 
-  /// THESE CODES ARE FOR DELETING A USER ACCOUNT.
-  /// It shows a confirmation dialog to prevent accidental deletions. If confirmed,
-  /// it permanently removes the user document from Firestore, updates the local
-  /// list to reflect the change instantly, and shows a success or error TopSnackBar.
+  /// THIS FUNCTION HANDLES DELETING A USER ACCOUNT.
+  /// IT SHOWS A CONFIRMATION DIALOG TO PREVENT ACCIDENTAL DELETIONS. IF CONFIRMED,
+  /// IT PERMANENTLY REMOVES THE USER DOCUMENT FROM FIRESTORE, UPDATES THE LOCAL
+  /// LIST TO REFLECT THE CHANGE INSTANTLY, AND SHOWS A SUCCESS OR ERROR TOPSNACKBAR.
   Future<void> _deleteUser(String docId) async {
     final confirm = await showDialog<bool>(
       context: context,
@@ -92,18 +94,18 @@ class _AdminManageUsersPageState extends State<AdminManageUsersPage> {
 
     if (confirm == true && mounted) {
       try {
-        // 1. Delete the user document from Firestore
+        // 1. DELETE THE USER DOCUMENT FROM FIRESTORE
         await FirebaseFirestore.instance
             .collection('users')
             .doc(docId)
             .delete();
 
-        // 2. Remove from local UI list instantly so the admin sees the change
+        // 2. REMOVE FROM LOCAL UI LIST INSTANTLY SO THE ADMIN SEES THE CHANGE
         setState(() {
           allUsers.removeWhere((item) => item['id'] == docId);
         });
 
-        // 3. Show success message
+        // 3. SHOW SUCCESS MESSAGE
         if (mounted) {
           TopSnackBar.show(
             context,
@@ -112,7 +114,7 @@ class _AdminManageUsersPageState extends State<AdminManageUsersPage> {
           );
         }
       } catch (e) {
-        // Show error message if deletion fails
+        // SHOW ERROR MESSAGE IF DELETION FAILS
         if (mounted) {
           TopSnackBar.show(
             context,
@@ -126,25 +128,25 @@ class _AdminManageUsersPageState extends State<AdminManageUsersPage> {
 
   // ==========================================================================
   // 4. UI BUILD METHOD
-  // This code renders the visual layout of the Admin User Management page
   // ==========================================================================
 
+  /// THIS METHOD RENDERS THE VISUAL LAYOUT OF THE ADMIN USER MANAGEMENT PAGE.
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF2F7F3),
       appBar: const KalaKalAppBar(title: 'Manage Users', showBackButton: true),
       body: isLoading
-          // Show loading spinner while fetching data
+          // SHOW LOADING SPINNER WHILE FETCHING DATA
           ? const Center(child: CircularProgressIndicator(color: Colors.green))
-          // Show empty state if no users exist in the database
+          // SHOW EMPTY STATE IF NO USERS EXIST IN THE DATABASE
           : allUsers.isEmpty
           ? const EmptyState(
               icon: Icons.people,
               title: 'No users found.',
               subtitle: 'The database is currently empty.',
             )
-          // Show the scrollable list of users with pull-to-refresh
+          // SHOW THE SCROLLABLE LIST OF USERS WITH PULL-TO-REFRESH
           : RefreshIndicator(
               onRefresh: _fetchUsers,
               child: ListView.builder(
@@ -153,7 +155,7 @@ class _AdminManageUsersPageState extends State<AdminManageUsersPage> {
                 itemBuilder: (context, index) {
                   final user = allUsers[index];
                   final role = user['role'] ?? 'unknown';
-                  // Capitalize the first letter of the role (e.g., 'admin' -> 'Admin')
+                  // CAPITALIZE THE FIRST LETTER OF THE ROLE (E.G., 'ADMIN' -> 'ADMIN')
                   final roleName = role[0].toUpperCase() + role.substring(1);
 
                   return Card(
@@ -164,7 +166,7 @@ class _AdminManageUsersPageState extends State<AdminManageUsersPage> {
                     child: ListTile(
                       contentPadding: const EdgeInsets.all(16),
                       leading: CircleAvatar(
-                        // Change avatar color and icon based on user role
+                        // CHANGE AVATAR COLOR AND ICON BASED ON USER ROLE
                         backgroundColor: role == 'admin'
                             ? Colors.red.shade100
                             : Colors.blue.shade100,
@@ -183,7 +185,7 @@ class _AdminManageUsersPageState extends State<AdminManageUsersPage> {
                       trailing: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          // Displays the user's role as a small badge
+                          // DISPLAYS THE USER'S ROLE AS A SMALL BADGE
                           Container(
                             padding: const EdgeInsets.symmetric(
                               horizontal: 8,
@@ -203,7 +205,7 @@ class _AdminManageUsersPageState extends State<AdminManageUsersPage> {
                           ),
                           const SizedBox(width: 8),
 
-                          // Delete Button that triggers the _deleteUser function
+                          // DELETE BUTTON THAT TRIGGERS THE _DELETEUSER FUNCTION
                           IconButton(
                             icon: const Icon(
                               Icons.delete_outline,

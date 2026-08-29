@@ -7,13 +7,13 @@ import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import '../widgets/kala_kal_app_bar.dart';
 import '../widgets/primary_button.dart';
-import '../widgets/top_snackbar.dart'; // ✅ Added for consistent notifications
+import '../widgets/top_snackbar.dart';
 
 // ============================================================================
 // CONSTANTS & DATA
 // ============================================================================
 
-// Comprehensive Legazpi City Barangays with GPS coordinates for the Notification Radius
+// COMPREHENSIVE LEGAZPI CITY BARANGAYS WITH GPS COORDINATES FOR THE NOTIFICATION RADIUS.
 final List<Map<String, dynamic>> legazpiBarangays = [
   {'name': 'Select a Barangay', 'lat': 0.0, 'lng': 0.0},
   // Poblacion / City Proper
@@ -48,6 +48,9 @@ final List<Map<String, dynamic>> legazpiBarangays = [
 // WIDGET CLASS
 // ============================================================================
 
+// THIS CLASS DEFINES THE EDIT PROFILE PAGE FOR HOUSEHOLDS.
+// IT ALLOWS USERS TO UPDATE THEIR PERSONAL INFORMATION, PROFILE PICTURE,
+// AND NOTIFICATION AREA FOR THE BIDDING SYSTEM.
 class EditProfilePage extends StatefulWidget {
   const EditProfilePage({super.key});
 
@@ -58,9 +61,9 @@ class EditProfilePage extends StatefulWidget {
 class _EditProfilePageState extends State<EditProfilePage> {
   // ==========================================================================
   // 1. STATE VARIABLES
-  // These hold the form controllers, loading states, and profile data
   // ==========================================================================
 
+  // THESE HOLD THE FORM CONTROLLERS, LOADING STATES, AND PROFILE DATA.
   final _formKey = GlobalKey<FormState>();
 
   final _nameController = TextEditingController();
@@ -81,13 +84,13 @@ class _EditProfilePageState extends State<EditProfilePage> {
   @override
   void initState() {
     super.initState();
-    // Automatically load the user's existing profile data when the page opens
+    // AUTOMATICALLY LOAD THE USER'S EXISTING PROFILE DATA WHEN THE PAGE OPENS.
     _loadCurrentProfile();
   }
 
   @override
   void dispose() {
-    // Cleans up memory by disposing text controllers when the page is closed
+    // CLEANS UP MEMORY BY DISPOSING TEXT CONTROLLERS WHEN THE PAGE IS CLOSED.
     _nameController.dispose();
     _phoneController.dispose();
     _addressController.dispose();
@@ -99,9 +102,9 @@ class _EditProfilePageState extends State<EditProfilePage> {
   // 3. DATA FETCHING & HELPER FUNCTIONS
   // ==========================================================================
 
-  /// THESE CODES ARE FOR LOADING THE EXISTING PROFILE DATA.
-  /// It fetches the current user's document from Firestore and pre-fills the
-  /// text fields, date picker, profile picture, and selected notification area.
+  /// THIS FUNCTION LOADS THE EXISTING PROFILE DATA.
+  /// IT FETCHES THE CURRENT USER'S DOCUMENT FROM FIRESTORE AND PRE-FILLS THE
+  /// TEXT FIELDS, DATE PICKER, PROFILE PICTURE, AND SELECTED NOTIFICATION AREA.
   Future<void> _loadCurrentProfile() async {
     try {
       final user = FirebaseAuth.instance.currentUser;
@@ -127,7 +130,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
             ).format(_selectedDate!);
           }
 
-          // Load existing Legazpi area if it was previously saved
+          // LOAD EXISTING LEGAZPI AREA IF IT WAS PREVIOUSLY SAVED
           if (data['homeLocation'] != null &&
               data['homeLocation']['areaName'] != null) {
             _selectedArea = data['homeLocation']['areaName'];
@@ -135,13 +138,13 @@ class _EditProfilePageState extends State<EditProfilePage> {
         });
       }
     } catch (e) {
-      debugPrint('❌ Error loading profile: $e');
+      debugPrint('Error loading profile: $e');
     }
   }
 
-  /// THESE CODES ARE FOR PICKING A NEW PROFILE PICTURE.
-  /// It opens the device's image gallery, compresses the image (quality: 50),
-  /// and saves the file path to be converted to Base64 later.
+  /// THIS FUNCTION HANDLES PICKING A NEW PROFILE PICTURE.
+  /// IT OPENS THE DEVICE'S IMAGE GALLERY, COMPRESSES THE IMAGE (QUALITY: 50),
+  /// AND SAVES THE FILE PATH TO BE CONVERTED TO BASE64 LATER.
   Future<void> _pickImage() async {
     final picker = ImagePicker();
     final pickedFile = await picker.pickImage(
@@ -156,21 +159,21 @@ class _EditProfilePageState extends State<EditProfilePage> {
     }
   }
 
-  /// THESE CODES ARE FOR CONVERTING THE IMAGE TO BASE64.
-  /// Firestore requires images to be stored as strings (Base64) for this implementation.
+  /// THIS FUNCTION CONVERTS THE SELECTED IMAGE TO BASE64.
+  /// FIRESTORE REQUIRES IMAGES TO BE STORED AS STRINGS (BASE64) FOR THIS IMPLEMENTATION.
   Future<String?> _convertImageToBase64() async {
     if (_imageFile == null) return _currentProfileBase64;
     try {
       final bytes = await _imageFile!.readAsBytes();
       return base64Encode(bytes);
     } catch (e) {
-      debugPrint('❌ Error converting image: $e');
+      debugPrint('Error converting image: $e');
       return null;
     }
   }
 
-  /// THESE CODES ARE FOR SELECTING A BIRTHDAY.
-  /// It opens a date picker dialog and formats the selected date to MM/dd/yyyy.
+  /// THIS FUNCTION HANDLES SELECTING A BIRTHDAY.
+  /// IT OPENS A DATE PICKER DIALOG AND FORMATS THE SELECTED DATE TO MM/DD/YYYY.
   Future<void> _selectBirthday() async {
     final DateTime? picked = await showDatePicker(
       context: context,
@@ -198,9 +201,9 @@ class _EditProfilePageState extends State<EditProfilePage> {
   // 4. USER ACTIONS
   // ==========================================================================
 
-  /// THESE CODES ARE FOR SAVING THE UPDATED PROFILE TO FIRESTORE.
-  /// It validates the form, converts the new image (if any), maps the selected
-  /// barangay to its GPS coordinates, and updates the user's document.
+  /// THIS FUNCTION SAVES THE UPDATED PROFILE TO FIRESTORE.
+  /// IT VALIDATES THE FORM, CONVERTS THE NEW IMAGE (IF ANY), MAPS THE SELECTED
+  /// BARANGAY TO ITS GPS COORDINATES, AND UPDATES THE USER'S DOCUMENT.
   Future<void> _saveProfile() async {
     if (!_formKey.currentState!.validate() || _isLoading) return;
 
@@ -211,7 +214,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
 
       final profileBase64 = await _convertImageToBase64();
 
-      // Get GPS coordinates from the selected area dropdown
+      // GET GPS COORDINATES FROM THE SELECTED AREA DROPDOWN
       Map<String, dynamic>? homeLocationMap;
       if (_selectedArea != null && _selectedArea != 'Select a Barangay') {
         final areaData = legazpiBarangays.firstWhere(
@@ -224,7 +227,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
         };
       }
 
-      // Update the user document in Firestore
+      // UPDATE THE USER DOCUMENT IN FIRESTORE
       await FirebaseFirestore.instance.collection('users').doc(user.uid).update(
         {
           'name': _nameController.text.trim(),
@@ -234,10 +237,10 @@ class _EditProfilePageState extends State<EditProfilePage> {
               ? Timestamp.fromDate(_selectedDate!)
               : FieldValue.delete(),
 
-          // ✅ Fixed syntax: Only update profilePic if a new one was selected
+          // FIXED SYNTAX: ONLY UPDATE PROFILEPIC IF A NEW ONE WAS SELECTED
           if (profileBase64 != null) 'profilePic': profileBase64,
 
-          // ✅ Save or delete homeLocation based on dropdown selection
+          // SAVE OR DELETE HOMELOCATION BASED ON DROPDOWN SELECTION
           if (homeLocationMap != null)
             'homeLocation': homeLocationMap
           else
@@ -251,7 +254,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
 
       TopSnackBar.show(
         context,
-        message: 'Profile updated successfully! ✅',
+        message: 'Profile updated successfully!',
         backgroundColor: Colors.green,
       );
       Navigator.pop(context);
@@ -269,9 +272,9 @@ class _EditProfilePageState extends State<EditProfilePage> {
 
   // ==========================================================================
   // 5. UI BUILD METHOD
-  // This code renders the visual layout of the Household Profile Edit screen
   // ==========================================================================
 
+  /// THIS METHOD RENDERS THE VISUAL LAYOUT OF THE HOUSEHOLD PROFILE EDIT SCREEN.
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -284,7 +287,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // --- Profile Picture Section ---
+              // --- PROFILE PICTURE SECTION ---
               Center(
                 child: Stack(
                   children: [
@@ -336,7 +339,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
               ),
               const SizedBox(height: 30),
 
-              // --- Name Field ---
+              // --- NAME FIELD ---
               const Text(
                 'Full Name',
                 style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
@@ -358,7 +361,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
               ),
               const SizedBox(height: 16),
 
-              // --- Email Field (Read Only) ---
+              // --- EMAIL FIELD (READ ONLY) ---
               const Text(
                 'Email',
                 style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
@@ -395,7 +398,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
               ),
               const SizedBox(height: 16),
 
-              // --- Phone Number Field ---
+              // --- PHONE NUMBER FIELD ---
               const Text(
                 'Contact Number',
                 style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
@@ -418,7 +421,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
               ),
               const SizedBox(height: 16),
 
-              // --- Birthday Field ---
+              // --- BIRTHDAY FIELD ---
               const Text(
                 'Birthday',
                 style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
@@ -443,7 +446,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
               ),
               const SizedBox(height: 16),
 
-              // --- Address Field ---
+              // --- ADDRESS FIELD ---
               const Text(
                 'Complete Address',
                 style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
@@ -467,14 +470,14 @@ class _EditProfilePageState extends State<EditProfilePage> {
               ),
               const SizedBox(height: 16),
 
-              // --- Notification Area Dropdown ---
+              // --- NOTIFICATION AREA DROPDOWN ---
               const Text(
                 'Set Notification Area (Legazpi)',
                 style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
               ),
               const SizedBox(height: 8),
               Text(
-                'Collectors within 1km of this area will be notified when you post.', // ✅ Updated to match 1km logic
+                'Collectors within 1km of this area will be notified when you post.', // UPDATED TO MATCH 1KM LOGIC
                 style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
               ),
               const SizedBox(height: 8),
@@ -503,7 +506,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
 
               const SizedBox(height: 30),
 
-              // --- Save Button ---
+              // --- SAVE BUTTON ---
               PrimaryButton(
                 text: _isLoading ? 'Saving...' : 'SAVE CHANGES',
                 onPressed: _saveProfile,

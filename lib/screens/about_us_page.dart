@@ -15,18 +15,17 @@ class AboutUsPage extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             const SizedBox(height: 20),
-            
+
+            // APP LOGO WITH FALLBACK ICON IF IMAGE NOT FOUND
             Image.asset(
               'assets/images/app_icon.png',
               height: 100,
-              errorBuilder: (context, error, stackTrace) => const Icon(
-                Icons.recycling,
-                size: 100,
-                color: Colors.green,
-              ),
+              errorBuilder: (context, error, stackTrace) =>
+                  const Icon(Icons.recycling, size: 100, color: Colors.green),
             ),
             const SizedBox(height: 16),
-            
+
+            // APP NAME AND VERSION NUMBER
             const Text(
               'KalaKalApp',
               style: TextStyle(
@@ -43,9 +42,10 @@ class AboutUsPage extends StatelessWidget {
                 fontWeight: FontWeight.w500,
               ),
             ),
-            
+
             const SizedBox(height: 32),
-            
+
+            // MISSION STATEMENT CARD
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(20),
@@ -89,9 +89,10 @@ class AboutUsPage extends StatelessWidget {
                 ],
               ),
             ),
-            
+
             const SizedBox(height: 32),
-            
+
+            // TEAM MEMBERS SECTION HEADER
             const Text(
               'Meet the Creators',
               style: TextStyle(
@@ -103,13 +104,11 @@ class AboutUsPage extends StatelessWidget {
             const SizedBox(height: 8),
             const Text(
               'The brilliant minds behind KalaKalApp',
-              style: TextStyle(
-                fontSize: 14,
-                color: Colors.grey,
-              ),
+              style: TextStyle(fontSize: 14, color: Colors.grey),
             ),
             const SizedBox(height: 24),
-            
+
+            // TEAM MEMBERS GRID - FIRST ROW
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
@@ -126,6 +125,8 @@ class AboutUsPage extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 24),
+
+            // TEAM MEMBERS GRID - SECOND ROW
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
@@ -134,12 +135,13 @@ class AboutUsPage extends StatelessWidget {
                   role: 'Backend Developer',
                   imagePath: 'assets/images/justine.jpg',
                 ),
-                const SizedBox(width: 140),
+                const SizedBox(width: 140), // SPACER FOR BALANCED LAYOUT
               ],
             ),
-            
+
             const SizedBox(height: 40),
-            
+
+            // KEY FEATURES CARD
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(20),
@@ -172,16 +174,29 @@ class AboutUsPage extends StatelessWidget {
                     ],
                   ),
                   const SizedBox(height: 12),
-                  _buildFeatureItem(Icons.location_on, 'GPS-based nearby notifications (3km radius)'),
-                  _buildFeatureItem(Icons.gavel, 'Transparent and fair bidding system'),
-                  _buildFeatureItem(Icons.security, 'Secure and verified user profiles'),
-                  _buildFeatureItem(Icons.history, 'Transaction history and ratings'),
+                  _buildFeatureItem(
+                    Icons.location_on,
+                    'GPS-based nearby notifications (3km radius)',
+                  ),
+                  _buildFeatureItem(
+                    Icons.gavel,
+                    'Transparent and fair bidding system',
+                  ),
+                  _buildFeatureItem(
+                    Icons.security,
+                    'Secure and verified user profiles',
+                  ),
+                  _buildFeatureItem(
+                    Icons.history,
+                    'Transaction history and ratings',
+                  ),
                 ],
               ),
             ),
 
             const SizedBox(height: 40),
-            
+
+            // FOOTER WITH COPYRIGHT
             const Text(
               'Developed with 💚 for a Greener Legazpi',
               style: TextStyle(
@@ -193,10 +208,7 @@ class AboutUsPage extends StatelessWidget {
             const SizedBox(height: 8),
             const Text(
               '© 2024 KalaKalApp. All rights reserved.',
-              style: TextStyle(
-                fontSize: 12,
-                color: Colors.grey,
-              ),
+              style: TextStyle(fontSize: 12, color: Colors.grey),
             ),
             const SizedBox(height: 20),
           ],
@@ -205,6 +217,7 @@ class AboutUsPage extends StatelessWidget {
     );
   }
 
+  /// THIS FUNCTION BUILDS A TEAM MEMBER CARD WITH PHOTO, NAME, AND ROLE.
   Widget _buildTeamMember({
     required String name,
     required String role,
@@ -258,6 +271,7 @@ class AboutUsPage extends StatelessWidget {
     );
   }
 
+  /// THIS FUNCTION BUILDS A FEATURE ITEM WITH AN ICON AND DESCRIPTION TEXT.
   Widget _buildFeatureItem(IconData icon, String text) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12.0),

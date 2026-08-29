@@ -6,12 +6,15 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:image_picker/image_picker.dart';
 import '../widgets/kala_kal_app_bar.dart';
 import '../widgets/primary_button.dart';
-import '../widgets/top_snackbar.dart'; // ✅ Added for consistent notifications
+import '../widgets/top_snackbar.dart';
 
 // ============================================================================
 // WIDGET CLASS
 // ============================================================================
 
+// THIS CLASS DEFINES THE EDIT PROFILE PAGE FOR COLLECTORS.
+// IT ALLOWS COLLECTORS TO UPDATE THEIR PERSONAL INFORMATION, VEHICLE DETAILS,
+// SERVICE AREA, AND PROFILE PICTURE.
 class EditCollectorProfilePage extends StatefulWidget {
   const EditCollectorProfilePage({super.key});
 
@@ -23,18 +26,18 @@ class EditCollectorProfilePage extends StatefulWidget {
 class _EditCollectorProfilePageState extends State<EditCollectorProfilePage> {
   // ==========================================================================
   // 1. STATE VARIABLES
-  // These hold the text controllers, image data, and loading states for the form
   // ==========================================================================
 
+  // THESE HOLD THE TEXT CONTROLLERS, IMAGE DATA, AND LOADING STATES FOR THE FORM.
   final _nameController = TextEditingController();
   final _phoneController = TextEditingController();
   final _vehicleController = TextEditingController();
   final _serviceAreaController = TextEditingController();
   final ImagePicker _picker = ImagePicker();
 
-  String? _profilePicBase64; // Stores the profile picture as a Base64 string
-  bool _isLoading = true; // Shows a loading spinner while fetching initial data
-  bool _isSaving = false; // Shows a loading spinner on the save button
+  String? _profilePicBase64; // STORES THE PROFILE PICTURE AS A BASE64 STRING
+  bool _isLoading = true; // SHOWS A LOADING SPINNER WHILE FETCHING INITIAL DATA
+  bool _isSaving = false; // SHOWS A LOADING SPINNER ON THE SAVE BUTTON
 
   // ==========================================================================
   // 2. LIFECYCLE METHODS
@@ -43,13 +46,13 @@ class _EditCollectorProfilePageState extends State<EditCollectorProfilePage> {
   @override
   void initState() {
     super.initState();
-    // Automatically load the collector's existing profile data when the page opens
+    // AUTOMATICALLY LOAD THE COLLECTOR'S EXISTING PROFILE DATA WHEN THE PAGE OPENS.
     _loadProfile();
   }
 
   @override
   void dispose() {
-    // Cleans up memory by disposing text controllers when the page is closed
+    // CLEANS UP MEMORY BY DISPOSING TEXT CONTROLLERS WHEN THE PAGE IS CLOSED.
     _nameController.dispose();
     _phoneController.dispose();
     _vehicleController.dispose();
@@ -61,9 +64,9 @@ class _EditCollectorProfilePageState extends State<EditCollectorProfilePage> {
   // 3. DATA FETCHING & USER ACTIONS
   // ==========================================================================
 
-  /// THESE CODES ARE FOR LOADING THE EXISTING PROFILE DATA.
-  /// It fetches the current user's document from Firestore and pre-fills the
-  /// text fields and profile picture so the collector can see and edit their current info.
+  /// THIS FUNCTION LOADS THE EXISTING PROFILE DATA.
+  /// IT FETCHES THE CURRENT USER'S DOCUMENT FROM FIRESTORE AND PRE-FILLS THE
+  /// TEXT FIELDS AND PROFILE PICTURE SO THE COLLECTOR CAN SEE AND EDIT THEIR CURRENT INFO.
   Future<void> _loadProfile() async {
     try {
       final user = FirebaseAuth.instance.currentUser;
@@ -80,18 +83,18 @@ class _EditCollectorProfilePageState extends State<EditCollectorProfilePage> {
           _vehicleController.text = doc.data()?['vehicleType'] ?? '';
           _serviceAreaController.text = doc.data()?['serviceArea'] ?? '';
           _profilePicBase64 = doc.data()?['profilePic'];
-          _isLoading = false; // Hide loading spinner once data is loaded
+          _isLoading = false; // HIDE LOADING SPINNER ONCE DATA IS LOADED
         });
       }
     } catch (e) {
-      debugPrint('❌ Error loading profile: $e');
+      debugPrint('Error loading profile: $e');
       setState(() => _isLoading = false);
     }
   }
 
-  /// THESE CODES ARE FOR PICKING AND ENCODING A NEW PROFILE PICTURE.
-  /// It opens the device's image gallery, compresses the image (quality: 50),
-  /// reads it as bytes, and converts it to a Base64 string to be saved in Firestore.
+  /// THIS FUNCTION HANDLES PICKING AND ENCODING A NEW PROFILE PICTURE.
+  /// IT OPENS THE DEVICE'S IMAGE GALLERY, COMPRESSES THE IMAGE (QUALITY: 50),
+  /// READS IT AS BYTES, AND CONVERTS IT TO A BASE64 STRING TO BE SAVED IN FIRESTORE.
   Future<void> _pickImage() async {
     final XFile? image = await _picker.pickImage(
       source: ImageSource.gallery,
@@ -105,9 +108,9 @@ class _EditCollectorProfilePageState extends State<EditCollectorProfilePage> {
     }
   }
 
-  /// THESE CODES ARE FOR SAVING THE UPDATED PROFILE TO FIRESTORE.
-  /// It validates that the name isn't empty, updates the user's document in the
-  /// database with the new values, shows a success TopSnackBar, and returns to the previous screen.
+  /// THIS FUNCTION SAVES THE UPDATED PROFILE TO FIRESTORE.
+  /// IT VALIDATES THAT THE NAME ISN'T EMPTY, UPDATES THE USER'S DOCUMENT IN THE
+  /// DATABASE WITH THE NEW VALUES, SHOWS A SUCCESS TOPSNACKBAR, AND RETURNS TO THE PREVIOUS SCREEN.
   Future<void> _saveProfile() async {
     if (_nameController.text.trim().isEmpty) {
       TopSnackBar.show(
@@ -123,7 +126,7 @@ class _EditCollectorProfilePageState extends State<EditCollectorProfilePage> {
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) return;
 
-      // Update only the specific fields in the user's Firestore document
+      // UPDATE ONLY THE SPECIFIC FIELDS IN THE USER'S FIRESTORE DOCUMENT
       await FirebaseFirestore.instance
           .collection('users')
           .doc(user.uid)
@@ -138,10 +141,10 @@ class _EditCollectorProfilePageState extends State<EditCollectorProfilePage> {
       if (mounted) {
         TopSnackBar.show(
           context,
-          message: 'Profile updated successfully! ✅',
+          message: 'Profile updated successfully!',
           backgroundColor: Colors.green,
         );
-        // Return 'true' to tell the previous screen (HomePage) to refresh its data
+        // RETURN 'TRUE' TO TELL THE PREVIOUS SCREEN (HOMEPAGE) TO REFRESH ITS DATA
         Navigator.pop(context, true);
       }
     } catch (e) {
@@ -159,12 +162,12 @@ class _EditCollectorProfilePageState extends State<EditCollectorProfilePage> {
 
   // ==========================================================================
   // 4. UI BUILD METHOD
-  // This code renders the visual layout of the Collector Profile Edit screen
   // ==========================================================================
 
+  /// THIS METHOD RENDERS THE VISUAL LAYOUT OF THE COLLECTOR PROFILE EDIT SCREEN.
   @override
   Widget build(BuildContext context) {
-    // Show a loading spinner while the initial profile data is being fetched
+    // SHOW A LOADING SPINNER WHILE THE INITIAL PROFILE DATA IS BEING FETCHED
     if (_isLoading) {
       return const Scaffold(
         backgroundColor: Color(0xFFF2F7F3),
@@ -180,7 +183,7 @@ class _EditCollectorProfilePageState extends State<EditCollectorProfilePage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            // --- Profile Picture Section ---
+            // --- PROFILE PICTURE SECTION ---
             GestureDetector(
               onTap: _pickImage,
               child: Stack(
@@ -189,7 +192,7 @@ class _EditCollectorProfilePageState extends State<EditCollectorProfilePage> {
                   CircleAvatar(
                     radius: 60,
                     backgroundColor: Colors.green.shade100,
-                    // Display the Base64 image if it exists, otherwise show a default truck icon
+                    // DISPLAY THE BASE64 IMAGE IF IT EXISTS, OTHERWISE SHOW A DEFAULT TRUCK ICON
                     backgroundImage: _profilePicBase64 != null
                         ? MemoryImage(base64Decode(_profilePicBase64!))
                         : null,
@@ -201,7 +204,7 @@ class _EditCollectorProfilePageState extends State<EditCollectorProfilePage> {
                           )
                         : null,
                   ),
-                  // Camera icon overlay to indicate the picture is clickable
+                  // CAMERA ICON OVERLAY TO INDICATE THE PICTURE IS CLICKABLE
                   Container(
                     padding: const EdgeInsets.all(8),
                     decoration: const BoxDecoration(
@@ -224,7 +227,7 @@ class _EditCollectorProfilePageState extends State<EditCollectorProfilePage> {
             ),
             const SizedBox(height: 32),
 
-            // --- Name Field ---
+            // --- NAME FIELD ---
             TextField(
               controller: _nameController,
               decoration: InputDecoration(
@@ -242,7 +245,7 @@ class _EditCollectorProfilePageState extends State<EditCollectorProfilePage> {
             ),
             const SizedBox(height: 16),
 
-            // --- Phone Field ---
+            // --- PHONE FIELD ---
             TextField(
               controller: _phoneController,
               keyboardType: TextInputType.phone,
@@ -258,7 +261,7 @@ class _EditCollectorProfilePageState extends State<EditCollectorProfilePage> {
             ),
             const SizedBox(height: 16),
 
-            // --- Vehicle Type Field ---
+            // --- VEHICLE TYPE FIELD ---
             TextField(
               controller: _vehicleController,
               decoration: InputDecoration(
@@ -276,7 +279,7 @@ class _EditCollectorProfilePageState extends State<EditCollectorProfilePage> {
             ),
             const SizedBox(height: 16),
 
-            // --- Service Area Field ---
+            // --- SERVICE AREA FIELD ---
             TextField(
               controller: _serviceAreaController,
               maxLines: 2,
@@ -292,7 +295,7 @@ class _EditCollectorProfilePageState extends State<EditCollectorProfilePage> {
             ),
             const SizedBox(height: 32),
 
-            // --- Save Button ---
+            // --- SAVE BUTTON ---
             PrimaryButton(
               text: 'SAVE CHANGES',
               onPressed: _saveProfile,

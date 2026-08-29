@@ -9,6 +9,8 @@ import 'admin_manage_users_page.dart';
 // WIDGET CLASS
 // ============================================================================
 
+// THIS CLASS DEFINES THE ADMIN DASHBOARD PAGE.
+// IT DISPLAYS SYSTEM STATISTICS AND PROVIDES NAVIGATION TO ADMIN MANAGEMENT TOOLS.
 class AdminDashboardPage extends StatefulWidget {
   const AdminDashboardPage({super.key});
 
@@ -19,13 +21,13 @@ class AdminDashboardPage extends StatefulWidget {
 class _AdminDashboardPageState extends State<AdminDashboardPage> {
   // ==========================================================================
   // 1. STATE VARIABLES
-  // These hold the statistical data fetched from the database
   // ==========================================================================
 
+  // THESE HOLD THE STATISTICAL DATA FETCHED FROM THE DATABASE.
   int totalUsers = 0;
   int activeListings = 0;
   int completedTransactions = 0;
-  bool isLoading = true; // Shows a loading spinner while data is being fetched
+  bool isLoading = true; // SHOWS A LOADING SPINNER WHILE DATA IS BEING FETCHED
 
   // ==========================================================================
   // 2. LIFECYCLE METHODS
@@ -34,7 +36,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
   @override
   void initState() {
     super.initState();
-    // Automatically fetch the statistics as soon as the page loads
+    // AUTOMATICALLY FETCH THE STATISTICS AS SOON AS THE PAGE LOADS.
     _fetchStats();
   }
 
@@ -42,50 +44,50 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
   // 3. DATA FETCHING FUNCTIONS
   // ==========================================================================
 
-  /// THESE CODES ARE FOR FETCHING SYSTEM STATISTICS.
-  /// It queries Firestore to count the total number of registered users,
-  /// currently active scrap listings, and successfully completed transactions
-  /// to display on the admin dashboard overview.
+  /// THIS FUNCTION FETCHES SYSTEM STATISTICS.
+  /// IT QUERIES FIRESTORE TO COUNT THE TOTAL NUMBER OF REGISTERED USERS,
+  /// CURRENTLY ACTIVE SCRAP LISTINGS, AND SUCCESSFULLY COMPLETED TRANSACTIONS
+  /// TO DISPLAY ON THE ADMIN DASHBOARD OVERVIEW.
   Future<void> _fetchStats() async {
     try {
-      // Fetch all users to count total registered accounts
+      // FETCH ALL USERS TO COUNT TOTAL REGISTERED ACCOUNTS.
       final usersSnapshot = await FirebaseFirestore.instance
           .collection('users')
           .get();
 
-      // Fetch listings that are currently marked as 'Active'
+      // FETCH LISTINGS THAT ARE CURRENTLY MARKED AS 'ACTIVE'.
       final activeSnapshot = await FirebaseFirestore.instance
           .collection('listings')
           .where('status', isEqualTo: 'Active')
           .get();
 
-      // Fetch listings that have been marked as 'Finished' (completed transactions)
+      // FETCH LISTINGS THAT HAVE BEEN MARKED AS 'FINISHED' (COMPLETED TRANSACTIONS).
       final finishedSnapshot = await FirebaseFirestore.instance
           .collection('listings')
           .where('status', isEqualTo: 'Finished')
           .get();
 
-      // Update the UI with the counted numbers
+      // UPDATE THE UI WITH THE COUNTED NUMBERS.
       setState(() {
         totalUsers = usersSnapshot.docs.length;
         activeListings = activeSnapshot.docs.length;
         completedTransactions = finishedSnapshot.docs.length;
-        isLoading = false; // Hide the loading spinner
+        isLoading = false; // HIDE THE LOADING SPINNER.
       });
     } catch (e) {
-      debugPrint('❌ Error fetching admin stats: $e');
+      debugPrint('Error fetching admin stats: $e');
       setState(() => isLoading = false);
     }
   }
 
   // ==========================================================================
   // 4. UI BUILD METHOD
-  // This code renders the visual layout of the Admin Dashboard
   // ==========================================================================
 
+  /// THIS METHOD RENDERS THE VISUAL LAYOUT OF THE ADMIN DASHBOARD.
   @override
   Widget build(BuildContext context) {
-    // Show a loading spinner while the statistics are being fetched
+    // SHOW A LOADING SPINNER WHILE THE STATISTICS ARE BEING FETCHED.
     if (isLoading) {
       return const Scaffold(
         backgroundColor: Color(0xFFF2F7F3),
@@ -104,7 +106,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // --- SECTION: System Overview Statistics ---
+            // --- SECTION: SYSTEM OVERVIEW STATISTICS ---
             const Text(
               'System Overview',
               style: TextStyle(
@@ -115,7 +117,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
             ),
             const SizedBox(height: 16),
 
-            // Row 1: Total Users and Active Listings
+            // ROW 1: TOTAL USERS AND ACTIVE LISTINGS.
             Row(
               children: [
                 Expanded(
@@ -137,7 +139,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
             ),
             const SizedBox(height: 12),
 
-            // Row 2: Completed and Cancelled Transactions
+            // ROW 2: COMPLETED AND CANCELLED TRANSACTIONS.
             Row(
               children: [
                 Expanded(
@@ -153,14 +155,14 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
                     label: 'Cancelled',
                     value: '0',
                     color: Colors.red,
-                  ), // Placeholder for future feature
+                  ), // PLACEHOLDER FOR FUTURE FEATURE
                 ),
               ],
             ),
 
             const SizedBox(height: 32),
 
-            // --- SECTION: Management Navigation Grid ---
+            // --- SECTION: MANAGEMENT NAVIGATION GRID ---
             const Text(
               'Management',
               style: TextStyle(
@@ -171,7 +173,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
             ),
             const SizedBox(height: 16),
 
-            // Grid of clickable cards that navigate to specific admin tools
+            // GRID OF CLICKABLE CARDS THAT NAVIGATE TO SPECIFIC ADMIN TOOLS.
             Expanded(
               child: GridView.count(
                 crossAxisCount: 2,
@@ -217,8 +219,8 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
 // ============================================================================
 
 /// HELPER WIDGET FOR MANAGEMENT CARDS.
-/// This creates the reusable, clickable cards seen in the "Management" grid
-/// that navigate the admin to specific moderation pages.
+/// THIS CREATES THE REUSABLE, CLICKABLE CARDS SEEN IN THE "MANAGEMENT" GRID
+/// THAT NAVIGATE THE ADMIN TO SPECIFIC MODERATION PAGES.
 class _AdminActionCard extends StatelessWidget {
   final IconData icon;
   final String title;

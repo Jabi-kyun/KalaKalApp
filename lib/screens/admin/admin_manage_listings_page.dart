@@ -10,6 +10,8 @@ import '../widgets/top_snackbar.dart';
 // WIDGET CLASS
 // ============================================================================
 
+// THIS CLASS DEFINES THE ADMIN MANAGE LISTINGS PAGE.
+// IT ALLOWS ADMINS TO VIEW ALL LISTINGS IN THE SYSTEM AND DELETE THEM IF NECESSARY.
 class AdminManageListingsPage extends StatefulWidget {
   const AdminManageListingsPage({super.key});
 
@@ -21,9 +23,9 @@ class AdminManageListingsPage extends StatefulWidget {
 class _AdminManageListingsPageState extends State<AdminManageListingsPage> {
   // ==========================================================================
   // 1. STATE VARIABLES
-  // These hold the loading state and the list of fetched listings
   // ==========================================================================
 
+  // THESE HOLD THE LOADING STATE AND THE LIST OF FETCHED LISTINGS.
   bool isLoading = true;
   List<Map<String, dynamic>> allListings = [];
 
@@ -34,7 +36,7 @@ class _AdminManageListingsPageState extends State<AdminManageListingsPage> {
   @override
   void initState() {
     super.initState();
-    // Automatically fetch the listings as soon as the page opens
+    // AUTOMATICALLY FETCH THE LISTINGS AS SOON AS THE PAGE OPENS.
     _fetchListings();
   }
 
@@ -42,10 +44,10 @@ class _AdminManageListingsPageState extends State<AdminManageListingsPage> {
   // 3. DATA FETCHING & USER ACTIONS
   // ==========================================================================
 
-  /// THESE CODES ARE FOR FETCHING ALL LISTINGS.
-  /// It queries the Firestore 'listings' collection, orders them by creation
-  /// date (newest first), attaches the document ID to each item, and updates
-  /// the UI with the complete list.
+  /// THIS FUNCTION FETCHES ALL LISTINGS.
+  /// IT QUERIES THE FIRESTORE 'LISTINGS' COLLECTION, ORDERS THEM BY CREATION
+  /// DATE (NEWEST FIRST), ATTACHES THE DOCUMENT ID TO EACH ITEM, AND UPDATES
+  /// THE UI WITH THE COMPLETE LIST.
   Future<void> _fetchListings() async {
     setState(() => isLoading = true);
     try {
@@ -57,21 +59,21 @@ class _AdminManageListingsPageState extends State<AdminManageListingsPage> {
       setState(() {
         allListings = snapshot.docs.map((doc) {
           final data = doc.data();
-          data['id'] = doc.id; // Attach the Firestore document ID for deletion
+          data['id'] = doc.id; // ATTACH THE FIRESTORE DOCUMENT ID FOR DELETION
           return data;
         }).toList();
         isLoading = false;
       });
     } catch (e) {
-      debugPrint('❌ Error fetching admin listings: $e');
+      debugPrint('Error fetching admin listings: $e');
       setState(() => isLoading = false);
     }
   }
 
-  /// THESE CODES ARE FOR DELETING A LISTING.
-  /// It shows a confirmation dialog to prevent accidental deletions. If confirmed,
-  /// it permanently removes the document from Firestore, updates the local list
-  /// to reflect the change instantly, and shows a success or error TopSnackBar.
+  /// THIS FUNCTION HANDLES DELETING A LISTING.
+  /// IT SHOWS A CONFIRMATION DIALOG TO PREVENT ACCIDENTAL DELETIONS. IF CONFIRMED,
+  /// IT PERMANENTLY REMOVES THE DOCUMENT FROM FIRESTORE, UPDATES THE LOCAL LIST
+  /// TO REFLECT THE CHANGE INSTANTLY, AND SHOWS A SUCCESS OR ERROR TOPSNACKBAR.
   Future<void> _deleteListing(String docId) async {
     final confirm = await showDialog<bool>(
       context: context,
@@ -96,18 +98,18 @@ class _AdminManageListingsPageState extends State<AdminManageListingsPage> {
 
     if (confirm == true && mounted) {
       try {
-        // 1. Delete from Firestore
+        // 1. DELETE FROM FIRESTORE
         await FirebaseFirestore.instance
             .collection('listings')
             .doc(docId)
             .delete();
 
-        // 2. Remove from local UI list instantly
+        // 2. REMOVE FROM LOCAL UI LIST INSTANTLY
         setState(() {
           allListings.removeWhere((item) => item['id'] == docId);
         });
 
-        // 3. Show success message
+        // 3. SHOW SUCCESS MESSAGE
         if (mounted) {
           TopSnackBar.show(
             context,
@@ -116,7 +118,7 @@ class _AdminManageListingsPageState extends State<AdminManageListingsPage> {
           );
         }
       } catch (e) {
-        // Show error message if deletion fails
+        // SHOW ERROR MESSAGE IF DELETION FAILS
         if (mounted) {
           TopSnackBar.show(
             context,
@@ -130,9 +132,9 @@ class _AdminManageListingsPageState extends State<AdminManageListingsPage> {
 
   // ==========================================================================
   // 4. UI BUILD METHOD
-  // This code renders the visual layout of the Admin Listings Management page
   // ==========================================================================
 
+  /// THIS METHOD RENDERS THE VISUAL LAYOUT OF THE ADMIN LISTINGS MANAGEMENT PAGE.
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -142,16 +144,16 @@ class _AdminManageListingsPageState extends State<AdminManageListingsPage> {
         showBackButton: true,
       ),
       body: isLoading
-          // Show loading spinner while fetching data
+          // SHOW LOADING SPINNER WHILE FETCHING DATA
           ? const Center(child: CircularProgressIndicator(color: Colors.green))
-          // Show empty state if no listings exist in the database
+          // SHOW EMPTY STATE IF NO LISTINGS EXIST IN THE DATABASE
           : allListings.isEmpty
           ? const EmptyState(
               icon: Icons.inventory_2,
               title: 'No listings found.',
               subtitle: 'The database is currently empty.',
             )
-          // Show the scrollable list of listings with pull-to-refresh
+          // SHOW THE SCROLLABLE LIST OF LISTINGS WITH PULL-TO-REFRESH
           : RefreshIndicator(
               onRefresh: _fetchListings,
               child: ListView.builder(
@@ -161,7 +163,7 @@ class _AdminManageListingsPageState extends State<AdminManageListingsPage> {
                   final item = allListings[index];
                   final status = item['status'] ?? 'Unknown';
 
-                  // Format the Firestore Timestamp into a readable date string
+                  // FORMAT THE FIRESTORE TIMESTAMP INTO A READABLE DATE STRING
                   final date = item['createdAt'] != null
                       ? DateFormat(
                           'MMM dd, yyyy',
@@ -192,14 +194,14 @@ class _AdminManageListingsPageState extends State<AdminManageListingsPage> {
                       trailing: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          // Displays the current status (e.g., ACTIVE, FINISHED)
+                          // DISPLAYS THE CURRENT STATUS (E.G., ACTIVE, FINISHED)
                           StatusChip(
                             label: status.toUpperCase(),
                             backgroundColor: Colors.grey,
                           ),
                           const SizedBox(width: 8),
 
-                          // Delete Button that triggers the _deleteListing function
+                          // DELETE BUTTON THAT TRIGGERS THE _DELETELISTING FUNCTION
                           IconButton(
                             icon: const Icon(
                               Icons.delete_outline,

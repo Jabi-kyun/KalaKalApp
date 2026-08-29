@@ -3,12 +3,14 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../widgets/kala_kal_app_bar.dart';
 import '../widgets/primary_button.dart';
-import '../widgets/top_snackbar.dart'; // ✅ Added for consistent notifications
+import '../widgets/top_snackbar.dart';
 
 // ============================================================================
 // WIDGET CLASS
 // ============================================================================
 
+// THIS CLASS DEFINES THE PLACE BID PAGE FOR COLLECTORS.
+// IT ALLOWS COLLECTORS TO VIEW A LISTING SUMMARY AND SUBMIT A FINANCIAL OFFER.
 class PlaceBidPage extends StatefulWidget {
   final String listingId;
   final String category;
@@ -32,9 +34,9 @@ class PlaceBidPage extends StatefulWidget {
 class _PlaceBidPageState extends State<PlaceBidPage> {
   // ==========================================================================
   // 1. STATE VARIABLES
-  // These hold the text input for the bid amount and the loading state
   // ==========================================================================
 
+  // THESE HOLD THE TEXT INPUT FOR THE BID AMOUNT AND THE LOADING STATE.
   final _amountController = TextEditingController();
   bool _isLoading = false;
 
@@ -44,7 +46,7 @@ class _PlaceBidPageState extends State<PlaceBidPage> {
 
   @override
   void dispose() {
-    // Cleans up memory by disposing the text controller when the page is closed
+    // CLEANS UP MEMORY BY DISPOSING THE TEXT CONTROLLER WHEN THE PAGE IS CLOSED.
     _amountController.dispose();
     super.dispose();
   }
@@ -53,13 +55,13 @@ class _PlaceBidPageState extends State<PlaceBidPage> {
   // 3. USER ACTIONS
   // ==========================================================================
 
-  /// THESE CODES ARE FOR SUBMITTING A BID TO A LISTING.
-  /// It validates that the entered amount is a valid positive number, fetches the
-  /// collector's current name and rating from their user profile, constructs a new
-  /// bid object, and safely appends it to the listing's 'bids' array in Firestore
-  /// using arrayUnion (which prevents overwriting other collectors' bids).
+  /// THIS FUNCTION HANDLES SUBMITTING A BID TO A LISTING.
+  /// IT VALIDATES THAT THE ENTERED AMOUNT IS A VALID POSITIVE NUMBER, FETCHES THE
+  /// COLLECTOR'S CURRENT NAME AND RATING FROM THEIR USER PROFILE, CONSTRUCTS A NEW
+  /// BID OBJECT, AND SAFELY APPENDS IT TO THE LISTING'S 'BIDS' ARRAY IN FIRESTORE
+  /// USING ARRAYUNION (WHICH PREVENTS OVERWRITING OTHER COLLECTORS' BIDS).
   Future<void> _submitBid() async {
-    // 1. Validate that the input is not empty
+    // 1. VALIDATE THAT THE INPUT IS NOT EMPTY.
     if (_amountController.text.trim().isEmpty) {
       TopSnackBar.show(
         context,
@@ -69,7 +71,7 @@ class _PlaceBidPageState extends State<PlaceBidPage> {
       return;
     }
 
-    // 2. Validate that the input is a valid positive number
+    // 2. VALIDATE THAT THE INPUT IS A VALID POSITIVE NUMBER.
     final double? amount = double.tryParse(_amountController.text.trim());
     if (amount == null || amount <= 0) {
       TopSnackBar.show(
@@ -85,7 +87,7 @@ class _PlaceBidPageState extends State<PlaceBidPage> {
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) throw Exception('Not logged in');
 
-      // 3. Fetch the collector's current profile data to include in the bid
+      // 3. FETCH THE COLLECTOR'S CURRENT PROFILE DATA TO INCLUDE IN THE BID.
       final userDoc = await FirebaseFirestore.instance
           .collection('users')
           .doc(user.uid)
@@ -94,7 +96,7 @@ class _PlaceBidPageState extends State<PlaceBidPage> {
       final collectorName = userDoc.data()?['name'] ?? 'Anonymous Collector';
       final collectorRating = userDoc.data()?['rating'] ?? 0.0;
 
-      // 4. Construct the new bid object
+      // 4. CONSTRUCT THE NEW BID OBJECT.
       final newBid = {
         'collectorUid': user.uid,
         'collectorName': collectorName,
@@ -104,7 +106,7 @@ class _PlaceBidPageState extends State<PlaceBidPage> {
         'status': 'Pending',
       };
 
-      // 5. Safely append the new bid to the listing's 'bids' array in Firestore
+      // 5. SAFELY APPEND THE NEW BID TO THE LISTING'S 'BIDS' ARRAY IN FIRESTORE.
       await FirebaseFirestore.instance
           .collection('listings')
           .doc(widget.listingId)
@@ -114,14 +116,14 @@ class _PlaceBidPageState extends State<PlaceBidPage> {
 
       if (!mounted) return;
 
-      // 6. Show success message and navigate back twice (past the bottom sheet, back to Nearby Listings)
+      // 6. SHOW SUCCESS MESSAGE AND NAVIGATE BACK TWICE (PAST THE BOTTOM SHEET, BACK TO NEARBY LISTINGS).
       TopSnackBar.show(
         context,
-        message: 'Bid of ₱${amount.toStringAsFixed(2)} placed successfully! ✅',
+        message: 'Bid of P${amount.toStringAsFixed(2)} placed successfully!',
         backgroundColor: Colors.green,
       );
-      Navigator.pop(context); // Closes the PlaceBidPage
-      Navigator.pop(context); // Closes the Listing Bottom Sheet
+      Navigator.pop(context); // CLOSES THE PLACEBIDPAGE
+      Navigator.pop(context); // CLOSES THE LISTING BOTTOM SHEET
     } catch (e) {
       if (!mounted) return;
       TopSnackBar.show(
@@ -136,9 +138,9 @@ class _PlaceBidPageState extends State<PlaceBidPage> {
 
   // ==========================================================================
   // 4. UI BUILD METHOD
-  // This code renders the visual layout of the Place a Bid screen
   // ==========================================================================
 
+  /// THIS METHOD RENDERS THE VISUAL LAYOUT OF THE PLACE A BID SCREEN.
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -149,7 +151,7 @@ class _PlaceBidPageState extends State<PlaceBidPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // --- Listing Summary Card ---
+            // --- LISTING SUMMARY CARD ---
             Card(
               elevation: 2,
               shape: RoundedRectangleBorder(
@@ -189,7 +191,7 @@ class _PlaceBidPageState extends State<PlaceBidPage> {
             ),
             const SizedBox(height: 24),
 
-            // --- Bid Input Section ---
+            // --- BID INPUT SECTION ---
             const Text(
               'Your Offer',
               style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
@@ -201,7 +203,7 @@ class _PlaceBidPageState extends State<PlaceBidPage> {
                 decimal: true,
               ),
               decoration: InputDecoration(
-                labelText: 'Amount (₱)',
+                labelText: 'Amount (P)',
                 prefixIcon: const Icon(
                   Icons.attach_money,
                   color: Colors.orange,
@@ -216,7 +218,7 @@ class _PlaceBidPageState extends State<PlaceBidPage> {
             ),
             const SizedBox(height: 32),
 
-            // --- Submit Button ---
+            // --- SUBMIT BUTTON ---
             PrimaryButton(
               text: 'SUBMIT BID',
               onPressed: _submitBid,
