@@ -42,7 +42,7 @@ class _PlaceBidPageState extends State<PlaceBidPage> {
     super.dispose();
   }
 
-  /// NEW FUNCTION: SENDS PUSH NOTIFICATION VIA ONE SIGNAL REST API
+  
   Future<void> _sendNotificationToHousehold(String householdUid) async {
     try {
       // 1. Get Household's OneSignal ID
