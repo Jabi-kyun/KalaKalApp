@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -30,11 +31,12 @@ class _HomePageState extends State<HomePage> {
   String? userProfilePic;
   bool isLoading = true;
 
-  // BADGE COUNTS FOR DASHBOARDS
-  int activeListingsCount = 0; // Collector: Nearby scraps available
-  int pendingBidCount = 0; // Collector: Booked/Pending Confirmation bids
-  int householdPendingBidsCount =
-      0; // Household: Active listings that have received bids
+  int activeListingsCount = 0;
+  int pendingBidCount = 0;
+  int householdPendingBidsCount = 0;
+
+  // STREAM SUBSCRIPTION TO CANCEL WHEN PAGE IS CLOSED
+  StreamSubscription? _listingsSubscription;
 
   @override
   void initState() {
@@ -42,8 +44,33 @@ class _HomePageState extends State<HomePage> {
     _loadUserData();
   }
 
-  /// THIS FUNCTION FETCHES THE CURRENT USER'S DATA FROM FIRESTORE AND UPDATES THE UI STATE.
-  /// IT REDIRECTS TO LOGIN IF NO USER IS FOUND. IT ALSO TRIGGERS SPECIFIC STATS FETCH BASED ON ROLE.
+  @override
+  void dispose() {
+    _listingsSubscription?.cancel(); // Clean up listener
+    super.dispose();
+  }
+
+  /// STARTS A REAL-TIME LISTENER FOR HOUSEHOLDS
+  void _startRealTimeListener(String uid) {
+    _listingsSubscription = FirebaseFirestore.instance
+        .collection('listings')
+        .where('householdUid', isEqualTo: uid)
+        .where('status', isEqualTo: 'Active')
+        .snapshots()
+        .listen((snapshot) {
+          int count = 0;
+          for (var doc in snapshot.docs) {
+            final bids = doc.data()['bids'] as List<dynamic>?;
+            if (bids != null && bids.isNotEmpty) count++;
+          }
+          if (mounted) {
+            setState(() {
+              householdPendingBidsCount = count;
+            });
+          }
+        });
+  }
+
   Future<void> _loadUserData() async {
     try {
       final user = FirebaseAuth.instance.currentUser;
@@ -70,11 +97,11 @@ class _HomePageState extends State<HomePage> {
           isLoading = false;
         });
 
-        // FETCH SPECIFIC DASHBOARD STATS BASED ON USER ROLE
         if (userRole == 'collector') {
           _fetchCollectorStats();
         } else if (userRole == 'household') {
           _fetchHouseholdStats();
+          _startRealTimeListener(user.uid); // START LISTENER
         }
       } else {
         throw Exception('Profile not found');
@@ -93,29 +120,20 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  /// THIS FUNCTION COUNTS HOW MANY ACTIVE LISTINGS HAVE RECEIVED AT LEAST ONE BID FOR HOUSEHOLDS.
   Future<void> _fetchHouseholdStats() async {
     try {
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) return;
-
       final snapshot = await FirebaseFirestore.instance
           .collection('listings')
           .where('householdUid', isEqualTo: user.uid)
           .where('status', isEqualTo: 'Active')
           .get();
-
       int count = 0;
       for (var doc in snapshot.docs) {
-        final data = doc.data();
-        final bidsList = (data['bids'] as List<dynamic>?);
-
-        // IF THE LISTING HAS A BIDS ARRAY AND IT'S NOT EMPTY, COUNT IT
-        if (bidsList != null && bidsList.isNotEmpty) {
-          count++;
-        }
+        final bids = doc.data()['bids'] as List<dynamic>?;
+        if (bids != null && bids.isNotEmpty) count++;
       }
-
       setState(() {
         householdPendingBidsCount = count;
       });
@@ -124,29 +142,22 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  /// THIS FUNCTION COUNTS NEARBY ACTIVE LISTINGS AND PENDING BID ACTIONS FOR COLLECTORS.
   Future<void> _fetchCollectorStats() async {
     try {
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) return;
-
-      // GET NEARBY ACTIVE LISTINGS COUNT
       final nearbySnapshot = await FirebaseFirestore.instance
           .collection('listings')
           .where('status', isEqualTo: 'Active')
           .get();
-
-      // GET BOOKED AND PENDING CONFIRMATION LISTINGS
       final pendingSnapshot = await FirebaseFirestore.instance
           .collection('listings')
           .where('status', whereIn: ['Booked', 'Pending Confirmation'])
           .get();
-
       int bidCount = 0;
       for (var doc in pendingSnapshot.docs) {
         final data = doc.data();
         final bidsList = (data['bids'] as List<dynamic>?);
-
         if (bidsList != null) {
           final myBid = bidsList.firstWhere(
             (bid) =>
@@ -157,7 +168,6 @@ class _HomePageState extends State<HomePage> {
           if (myBid != null) bidCount++;
         }
       }
-
       setState(() {
         activeListingsCount = nearbySnapshot.docs.length;
         pendingBidCount = bidCount;
@@ -167,7 +177,6 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  /// THIS FUNCTION DISPLAYS A CONFIRMATION DIALOG AND SIGNS THE USER OUT OF FIREBASE AUTH.
   Future<void> _logout() async {
     final confirm = await showDialog<bool>(
       context: context,
@@ -187,7 +196,6 @@ class _HomePageState extends State<HomePage> {
         ],
       ),
     );
-
     if (confirm == true && mounted) {
       await FirebaseAuth.instance.signOut();
       if (mounted) {
@@ -199,7 +207,6 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  /// THIS FUNCTION HANDLES THE SELECTION LOGIC FOR THE THREE-DOTS POPUP MENU IN THE APPBAR.
   void _onMenuSelected(String value) {
     switch (value) {
       case 'edit_profile':
@@ -286,7 +293,6 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  /// THIS FUNCTION BUILDS THE DASHBOARD UI SPECIFICALLY FOR ADMIN USERS.
   Widget _buildAdminDashboard() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -355,7 +361,6 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  /// THIS FUNCTION BUILDS THE DASHBOARD UI FOR HOUSEHOLD USERS WITH DYNAMIC BADGES.
   Widget _buildHouseholdDashboard() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -429,7 +434,6 @@ class _HomePageState extends State<HomePage> {
                   MaterialPageRoute(builder: (_) => const MyListingsPage()),
                 ),
               ),
-              // ADDED BADGE FOR HOUSEHOLD RECEIVED BIDS
               ActionCard(
                 icon: Icons.monetization_on,
                 title: 'Received Bids',
@@ -444,7 +448,7 @@ class _HomePageState extends State<HomePage> {
                       builder: (_) => const MyActiveListingsPage(),
                     ),
                   );
-                  _fetchHouseholdStats(); // REFRESH BADGE COUNT AFTER RETURNING
+                  _fetchHouseholdStats();
                 },
               ),
               ActionCard(
@@ -466,7 +470,6 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  /// THIS FUNCTION BUILDS THE DASHBOARD UI FOR COLLECTOR USERS WITH DYNAMIC BADGES.
   Widget _buildCollectorDashboard() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -534,7 +537,7 @@ class _HomePageState extends State<HomePage> {
                       builder: (_) => const NearbyListingsPage(),
                     ),
                   );
-                  _fetchCollectorStats(); // REFRESH BOTH BADGES
+                  _fetchCollectorStats();
                 },
               ),
               ActionCard(
@@ -549,7 +552,7 @@ class _HomePageState extends State<HomePage> {
                     context,
                     MaterialPageRoute(builder: (_) => const MyBidsPage()),
                   );
-                  _fetchCollectorStats(); // REFRESH BOTH BADGES
+                  _fetchCollectorStats();
                 },
               ),
               ActionCard(

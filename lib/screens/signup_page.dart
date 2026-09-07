@@ -134,16 +134,18 @@ class _SignupPageState extends State<SignupPage> {
 
   Future<void> signup() async {
     if (!_formKey.currentState!.validate() || _selectedDate == null) {
+      // CHECKS IF ALL THE FIELDS ARE CORRECT INCLUDING BIRTHDAY
       TopSnackBar.show(
         context,
-        message: 'Please fill all fields and select a birthday.',
+        message: 'Please fill all fields correctly.',
         backgroundColor: Colors.red,
       );
       return;
     }
 
     // SHOW TERMS AGREEMENT DIALOG BEFORE CREATING ACCOUNT
-    final agreedToTerms = await _showTermsAgreementDialog();
+    final agreedToTerms =
+        await _showTermsAgreementDialog(); // THIS IS FOR THE TERMS AND CONDITIONS AGREEMENT POPUP IF CANCELLED
 
     if (!agreedToTerms) {
       // User clicked CANCEL - signup is rejected
@@ -158,14 +160,17 @@ class _SignupPageState extends State<SignupPage> {
     }
 
     // User clicked I AGREE - proceed with signup
-    if (_isLoading) return;
+    if (_isLoading)
+      return; // THIS PART OF CODE IS WHEN AGREE IS CLICKED AND THE SIGNUP BUTTON IS CLICKED
     setState(() => _isLoading = true);
 
     try {
-      Map<String, dynamic>? homeLocation;
+      Map<String, dynamic>?
+      homeLocation; // THIS IS ONLY FOR THE COLLECTORSIF HOUSEHOULD THEN PROCEED WITH NORMAL SIGN UP
 
       if (_selectedRole == 'collector') {
-        bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+        bool serviceEnabled =
+            await Geolocator.isLocationServiceEnabled(); // WAITS FOT THE PHONES GPS TO SEND COORDINATES LATITUDE AND LONGITUDE
         if (!serviceEnabled) {
           if (mounted) {
             setState(() => _isLoading = false);
@@ -204,15 +209,17 @@ class _SignupPageState extends State<SignupPage> {
           'latitude': position.latitude,
           'longitude': position.longitude,
         };
-      }
+      } // this is the end of the collector location permission and coordinates code
 
-      UserCredential userCredential = await FirebaseAuth.instance
+      UserCredential userCredential = await FirebaseAuth
+          .instance // THIS IS FOR VALIDATING AND CRREATING THE ACCOUNT IN THE FIREBASE AUTHENTICATION SYSTEM AND THEN SENDING THE DATA TO FIRESTORE DATABASE
           .createUserWithEmailAndPassword(
             email: emailController.text.trim(),
             password: passwordController.text.trim(),
           );
 
       Map<String, dynamic> userData = {
+        // THE ENVELOPE OF THE DATA THAT WILL BE SENT TO FIRESTORE
         "uid": userCredential.user!.uid,
         "name": nameController.text.trim(),
         "email": emailController.text.trim(),
@@ -228,10 +235,12 @@ class _SignupPageState extends State<SignupPage> {
       };
 
       if (homeLocation != null) {
+        // IF THE USER IS A COLLECTOR, ADD THEIR LOCATION TO THE DATA
         userData["homeLocation"] = homeLocation;
       }
 
-      await FirebaseFirestore.instance
+      await FirebaseFirestore
+          .instance // SENDS THE DATA TO FIRESTORE DATABASE
           .collection("users")
           .doc(userCredential.user!.uid)
           .set(userData);
@@ -269,6 +278,7 @@ class _SignupPageState extends State<SignupPage> {
         );
       }
     } finally {
+      // THIS IS THE END OF THE SIGNUP FUNCTION
       if (mounted) setState(() => _isLoading = false);
     }
   }
@@ -284,6 +294,7 @@ class _SignupPageState extends State<SignupPage> {
     super.dispose();
   }
 
+  // THESE ARE THE WIDGETS THAT WILL BE DISPLAYED IN THE SIGNUP PAGE more on design and layout will be in the build method below
   @override
   Widget build(BuildContext context) {
     return Scaffold(

@@ -20,7 +20,8 @@ class _LoginPageState extends State<LoginPage> {
   bool _obscurePassword = true;
 
   Future<void> login() async {
-    if (!_formKey.currentState!.validate() || _isLoading) return;
+    if (!_formKey.currentState!.validate() || _isLoading)
+      return; // THIS PART IS ALL ABOUT CHECKING IF THE INPUT IS EMPTY
 
     setState(() => _isLoading = true);
     try {
@@ -42,6 +43,7 @@ class _LoginPageState extends State<LoginPage> {
         (route) => false,
       );
     } on FirebaseAuthException catch (e) {
+      // THESE ARE THE ERROR HANDLING PARTS OF THE CODE, WHICH WILL SHOW DIFFERENT MESSAGES BASED ON THE ERROR CODE RETURNED BY FIREBASE AUTH
       String message = "Login failed. Please try again.";
       if (e.code == 'user-not-found')
         message = 'No account found with this email.';
@@ -67,6 +69,7 @@ class _LoginPageState extends State<LoginPage> {
   }
 
   Future<void> _forgotPassword() async {
+    // THIS PART HERE IS FOR FORGET PASSWORD FUNCTION
     final forgotEmailController = TextEditingController();
 
     final result = await showDialog<bool>(
