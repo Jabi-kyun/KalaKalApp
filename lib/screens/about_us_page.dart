@@ -108,9 +108,11 @@ class AboutUsPage extends StatelessWidget {
             ),
             const SizedBox(height: 24),
 
-            // TEAM MEMBERS GRID - FIRST ROW
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            // TEAM MEMBERS GRID (Using Wrap for better responsiveness than hardcoded spacers)
+            Wrap(
+              alignment: WrapAlignment.center,
+              spacing: 20,
+              runSpacing: 24,
               children: [
                 _buildTeamMember(
                   name: 'Jhobby Sorsogon',
@@ -122,20 +124,11 @@ class AboutUsPage extends StatelessWidget {
                   role: 'UI/UX Designer',
                   imagePath: 'assets/images/cresa.jpg',
                 ),
-              ],
-            ),
-            const SizedBox(height: 24),
-
-            // TEAM MEMBERS GRID - SECOND ROW
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: [
                 _buildTeamMember(
                   name: 'Justine Macabenta',
                   role: 'Backend Developer',
                   imagePath: 'assets/images/justine.jpg',
                 ),
-                const SizedBox(width: 140), // SPACER FOR BALANCED LAYOUT
               ],
             ),
 
@@ -174,9 +167,10 @@ class AboutUsPage extends StatelessWidget {
                     ],
                   ),
                   const SizedBox(height: 12),
+                  // FIXED: Changed from 3km to 1km to match your actual Haversine logic!
                   _buildFeatureItem(
                     Icons.location_on,
-                    'GPS-based nearby notifications (3km radius)',
+                    'GPS-based nearby listings (strict 1km radius)',
                   ),
                   _buildFeatureItem(
                     Icons.gavel,
@@ -188,7 +182,7 @@ class AboutUsPage extends StatelessWidget {
                   ),
                   _buildFeatureItem(
                     Icons.history,
-                    'Transaction history and ratings',
+                    'Transaction history and dynamic ratings',
                   ),
                 ],
               ),
@@ -206,8 +200,9 @@ class AboutUsPage extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 8),
+            
             const Text(
-              '© 2024 KalaKalApp. All rights reserved.',
+              '© 2026 KalaKalApp. All rights reserved.',
               style: TextStyle(fontSize: 12, color: Colors.grey),
             ),
             const SizedBox(height: 20),
