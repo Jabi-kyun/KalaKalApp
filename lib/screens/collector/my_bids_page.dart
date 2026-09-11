@@ -8,54 +8,33 @@ import '../widgets/empty_state.dart';
 import '../widgets/top_snackbar.dart';
 import 'navigate_to_pickup_page.dart';
 
-// ============================================================================
-// WIDGET CLASS
-// ============================================================================
-
-// THIS CLASS DEFINES THE MY BIDS PAGE FOR COLLECTORS.
-// IT ALLOWS COLLECTORS TO VIEW THEIR PLACED BIDS, TRACK THEIR STATUS,
-// AND CONFIRM PICKUPS FOR ACCEPTED BIDS.
 class MyBidsPage extends StatefulWidget {
   const MyBidsPage({super.key});
-
   @override
   State<MyBidsPage> createState() => _MyBidsPageState();
 }
 
 class _MyBidsPageState extends State<MyBidsPage> {
-  // ==========================================================================
-  // 1. STATE VARIABLES
-  // ==========================================================================
-
-  // THESE HOLD THE LOADING STATE AND THE LIST OF THE COLLECTOR'S BIDS.
   bool isLoading = true;
   List<Map<String, dynamic>> myBids = [];
 
-  // ==========================================================================
-  // 2. LIFECYCLE METHODS
-  // ==========================================================================
+  // ✅ SAFE HELPER FOR HOUSEHOLD NAMES
+  String getSafeDisplay(dynamic value, String fallback) {
+    if (value == null || value.toString().trim().isEmpty) return fallback;
+    return value.toString();
+  }
 
   @override
   void initState() {
     super.initState();
-    // AUTOMATICALLY FETCH THE COLLECTOR'S BIDS AS SOON AS THE PAGE OPENS.
     _fetchMyBids();
   }
 
-  // ==========================================================================
-  // 3. DATA FETCHING & USER ACTIONS
-  // ==========================================================================
-
-  /// THIS FUNCTION FETCHES AND ORGANIZES THE COLLECTOR'S BIDS.
-  /// UPDATED TO INCLUDE 'PENDING CONFIRMATION' STATUS SO COLLECTORS CAN SEE
-  /// TRANSACTIONS WAITING FOR HOUSEHOLD APPROVAL.
   Future<void> _fetchMyBids() async {
     setState(() => isLoading = true);
     try {
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) return;
-
-      // FETCH ACTIVE, BOOKED, AND PENDING CONFIRMATION LISTINGS.
       final snapshot = await FirebaseFirestore.instance
           .collection('listings')
           .where(
@@ -63,20 +42,16 @@ class _MyBidsPageState extends State<MyBidsPage> {
             whereIn: ['Active', 'Booked', 'Pending Confirmation'],
           )
           .get();
-
       List<Map<String, dynamic>> tempBids = [];
-
       for (var doc in snapshot.docs) {
         final data = doc.data();
         data['id'] = doc.id;
         final bidsList = (data['bids'] as List<dynamic>?);
-
         if (bidsList != null) {
           final myBid = bidsList.firstWhere(
             (bid) => (bid as Map)['collectorUid'] == user.uid,
             orElse: () => null,
           );
-
           if (myBid != null) {
             tempBids.add({
               ...data,
@@ -87,8 +62,6 @@ class _MyBidsPageState extends State<MyBidsPage> {
           }
         }
       }
-
-      // SORT BIDS BY DATE IN DESCENDING ORDER (NEWEST FIRST).
       tempBids.sort((a, b) {
         final dateA = a['bidAt'] is Timestamp
             ? (a['bidAt'] as Timestamp).toDate()
@@ -98,7 +71,6 @@ class _MyBidsPageState extends State<MyBidsPage> {
             : DateTime(2000);
         return dateB.compareTo(dateA);
       });
-
       if (mounted) {
         setState(() {
           myBids = tempBids;
@@ -118,17 +90,13 @@ class _MyBidsPageState extends State<MyBidsPage> {
     }
   }
 
-  /// THIS FUNCTION HANDLES CONFIRMING A PICKUP ON THE COLLECTOR SIDE.
-  /// UPDATED: NOW SETS STATUS TO 'PENDING CONFIRMATION' INSTEAD OF 'FINISHED'.
-  /// THIS ENSURES THE TRANSACTION IS NOT CLOSED UNTIL THE HOUSEHOLD ALSO CONFIRMS.
   Future<void> _confirmPickup(String listingId) async {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
         title: const Text('Confirm Pickup?'),
         content: const Text(
-          'Have you successfully collected the recyclables? '
-          'The household will be notified to confirm completion.',
+          'Have you successfully collected the recyclables? The household will be notified to confirm completion.',
         ),
         actions: [
           TextButton(
@@ -143,35 +111,28 @@ class _MyBidsPageState extends State<MyBidsPage> {
         ],
       ),
     );
-
     if (confirm == true && mounted) {
       try {
         final user = FirebaseAuth.instance.currentUser;
         if (user == null) return;
-
         final docRef = FirebaseFirestore.instance
             .collection('listings')
             .doc(listingId);
         final doc = await docRef.get();
-
         if (doc.exists) {
           final data = doc.data()!;
           List<dynamic> bidsList = List<dynamic>.from(data['bids'] ?? []);
-
           for (var i = 0; i < bidsList.length; i++) {
             if (bidsList[i]['collectorUid'] == user.uid) {
-              bidsList[i]['status'] = 'Accepted'; // KEEP BID STATUS AS ACCEPTED
+              bidsList[i]['status'] = 'Accepted';
               break;
             }
           }
-
-          // CRITICAL CHANGE: SET MAIN STATUS TO 'PENDING CONFIRMATION'.
           await docRef.update({
             'status': 'Pending Confirmation',
             'pendingConfirmationAt': FieldValue.serverTimestamp(),
             'bids': bidsList,
           });
-
           if (mounted) {
             TopSnackBar.show(
               context,
@@ -182,18 +143,16 @@ class _MyBidsPageState extends State<MyBidsPage> {
           }
         }
       } catch (e) {
-        if (mounted) {
+        if (mounted)
           TopSnackBar.show(
             context,
             message: 'Error confirming pickup: $e',
             backgroundColor: Colors.red,
           );
-        }
       }
     }
   }
 
-  /// HELPER FUNCTION TO ASSIGN COLORS BASED ON BID OR LISTING STATUS.
   Color _getStatusColor(String status) {
     switch (status.toLowerCase()) {
       case 'pending':
@@ -203,7 +162,7 @@ class _MyBidsPageState extends State<MyBidsPage> {
       case 'booked':
         return Colors.blue;
       case 'pending confirmation':
-        return Colors.purple; // NEW COLOR FOR INTERMEDIATE STATE
+        return Colors.purple;
       case 'finished':
         return Colors.grey;
       case 'rejected':
@@ -213,27 +172,19 @@ class _MyBidsPageState extends State<MyBidsPage> {
     }
   }
 
-  // ==========================================================================
-  // 4. UI BUILD METHOD
-  // ==========================================================================
-
-  /// THIS METHOD RENDERS THE VISUAL LAYOUT OF THE COLLECTOR'S MY BIDS PAGE.
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF2F7F3),
       appBar: const KalaKalAppBar(title: 'My Bids', showBackButton: true),
       body: isLoading
-          // SHOW LOADING SPINNER WHILE FETCHING DATA.
           ? const Center(child: CircularProgressIndicator(color: Colors.green))
-          // SHOW EMPTY STATE IF NO BIDS HAVE BEEN PLACED YET.
           : myBids.isEmpty
           ? const EmptyState(
               icon: Icons.gavel,
               title: 'No bids placed yet.',
               subtitle: 'Browse nearby listings and make your first offer!',
             )
-          // SHOW THE SCROLLABLE LIST OF BIDS WITH PULL-TO-REFRESH.
           : RefreshIndicator(
               onRefresh: _fetchMyBids,
               child: ListView.builder(
@@ -248,7 +199,6 @@ class _MyBidsPageState extends State<MyBidsPage> {
                           'MMM dd, yyyy',
                         ).format((item['bidAt'] as Timestamp).toDate())
                       : 'Unknown Date';
-
                   return Card(
                     elevation: 2,
                     shape: RoundedRectangleBorder(
@@ -259,7 +209,6 @@ class _MyBidsPageState extends State<MyBidsPage> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          // TOP ROW: CATEGORY AND LISTING STATUS CHIPS.
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
@@ -274,10 +223,11 @@ class _MyBidsPageState extends State<MyBidsPage> {
                             ],
                           ),
                           const SizedBox(height: 12),
-
-                          // HOUSEHOLD AND LISTING DETAILS.
                           Text(
-                            item['householdName'] ?? 'Anonymous Household',
+                            getSafeDisplay(
+                              item['householdName'],
+                              'Anonymous Household',
+                            ),
                             style: const TextStyle(
                               fontWeight: FontWeight.bold,
                               fontSize: 18,
@@ -301,8 +251,6 @@ class _MyBidsPageState extends State<MyBidsPage> {
                             ),
                           ),
                           const SizedBox(height: 16),
-
-                          // BID DETAILS BOX (OFFER AMOUNT AND CURRENT STATUS).
                           Container(
                             padding: const EdgeInsets.all(12),
                             decoration: BoxDecoration(
@@ -357,13 +305,10 @@ class _MyBidsPageState extends State<MyBidsPage> {
                             ),
                           ),
                           const SizedBox(height: 12),
-
-                          // UPDATED CONDITION: SHOW BUTTONS FOR BOOKED OR PENDING CONFIRMATION.
                           if ((listingStatus == 'Booked' ||
                                   listingStatus == 'Pending Confirmation') &&
                               item['myBidStatus'] == 'Accepted' &&
                               item['location'] != null) ...[
-                            // ONLY SHOW NAVIGATE BUTTON IF STILL BOOKED (NOT YET CONFIRMED BY COLLECTOR).
                             if (listingStatus == 'Booked')
                               SizedBox(
                                 width: double.infinity,
@@ -374,9 +319,10 @@ class _MyBidsPageState extends State<MyBidsPage> {
                                       context,
                                       MaterialPageRoute(
                                         builder: (_) => NavigateToPickupPage(
-                                          householdName:
-                                              item['householdName'] ??
-                                              'Household',
+                                          householdName: getSafeDisplay(
+                                            item['householdName'],
+                                            'Household',
+                                          ),
                                           address:
                                               item['address'] ??
                                               'No address provided',
@@ -412,10 +358,7 @@ class _MyBidsPageState extends State<MyBidsPage> {
                                   ),
                                 ),
                               ),
-
                             const SizedBox(height: 8),
-
-                            // SHOW CONFIRM PICKUP BUTTON FOR BOTH BOOKED AND PENDING CONFIRMATION STATES.
                             SizedBox(
                               width: double.infinity,
                               child: ElevatedButton.icon(
@@ -448,8 +391,6 @@ class _MyBidsPageState extends State<MyBidsPage> {
                               ),
                             ),
                           ],
-
-                          // REJECTION MESSAGE: SHOWS POLITELY IF THE BID WAS NOT ACCEPTED.
                           if (item['myBidStatus'] == 'Rejected')
                             Container(
                               width: double.infinity,
@@ -469,9 +410,7 @@ class _MyBidsPageState extends State<MyBidsPage> {
                                 ),
                               ),
                             ),
-
                           const SizedBox(height: 8),
-                          // DATE THE BID WAS PLACED.
                           Text(
                             date,
                             style: const TextStyle(

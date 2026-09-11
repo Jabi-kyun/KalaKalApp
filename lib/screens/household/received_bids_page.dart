@@ -2,13 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/top_snackbar.dart';
+// IMPORT THE NEW REVIEW PAGE
+import '../collector/collector_review_page.dart';
 
-// ============================================================================
-// WIDGET CLASS
-// ============================================================================
-
-// THIS CLASS DEFINES THE RECEIVED BIDS PAGE FOR HOUSEHOLDS.
-// IT ALLOWS USERS TO VIEW, SORT, AND ACCEPT BIDS PLACED BY COLLECTORS.
 class ReceivedBidsPage extends StatefulWidget {
   final String listingId;
   final String listingCategory;
@@ -26,17 +22,15 @@ class ReceivedBidsPage extends StatefulWidget {
 }
 
 class _ReceivedBidsPageState extends State<ReceivedBidsPage> {
-  // ==========================================================================
-  // 1. STATE VARIABLES
-  // ==========================================================================
-
   bool isLoading = true;
   List<Map<String, dynamic>> bids = [];
   String listingStatus = 'Active';
 
-  // ==========================================================================
-  // 2. LIFECYCLE METHODS
-  // ==========================================================================
+  // ✅ SAFE HELPER FOR AVATAR INITIALS (Prevents [0] crash on empty strings)
+  String getSafeInitial(dynamic value) {
+    if (value == null || value.toString().trim().isEmpty) return '?';
+    return value.toString()[0].toUpperCase();
+  }
 
   @override
   void initState() {
@@ -44,13 +38,6 @@ class _ReceivedBidsPageState extends State<ReceivedBidsPage> {
     _fetchBids();
   }
 
-  // ==========================================================================
-  // 3. DATA FETCHING & USER ACTIONS
-  // ==========================================================================
-
-  /// THIS FUNCTION FETCHES BIDS AND CALCULATES THE COLLECTOR'S REPUTATION.
-  /// IT RETRIEVES THE LISTING'S BIDS AND DYNAMICALLY CALCULATES EACH COLLECTOR'S
-  /// TRUE AVERAGE RATING BY CHECKING ALL HISTORICALLY FINISHED TRANSACTIONS.
   Future<void> _fetchBids() async {
     if (!mounted) return;
     setState(() => isLoading = true);
@@ -73,14 +60,11 @@ class _ReceivedBidsPageState extends State<ReceivedBidsPage> {
         final rawBids = (data?['bids'] as List<dynamic>?) ?? [];
         bids = rawBids.map((e) => Map<String, dynamic>.from(e as Map)).toList();
 
-        // STEP 1: FETCH ALL FINISHED TRANSACTIONS TO BUILD A REPUTATION MAP.
-        // THIS ENSURES WE FIND RATINGS EVEN ON OLDER TRANSACTIONS THAT LACK 'WINNERUID'.
         final allFinishedSnapshot = await FirebaseFirestore.instance
             .collection('listings')
             .where('status', isEqualTo: 'Finished')
             .get();
 
-        // MAP TO STORE { COLLECTORUID: { 'TOTAL': DOUBLE, 'COUNT': INT } }
         Map<String, Map<String, dynamic>> collectorStats = {};
 
         for (var finishedDoc in allFinishedSnapshot.docs) {
@@ -89,7 +73,6 @@ class _ReceivedBidsPageState extends State<ReceivedBidsPage> {
               finishedData['acceptedBid'] as Map<String, dynamic>?;
           final rating = finishedData['collectorRating'] ?? 0;
 
-          // ONLY COUNT IF THERE IS A VALID COLLECTOR AND A RATING GREATER THAN 0
           if (acceptedBid != null &&
               acceptedBid['collectorUid'] != null &&
               rating > 0) {
@@ -106,7 +89,6 @@ class _ReceivedBidsPageState extends State<ReceivedBidsPage> {
           }
         }
 
-        // STEP 2: ATTACH THE CALCULATED AVERAGE TO EACH BID.
         for (var bid in bids) {
           String uid = bid['collectorUid'];
 
@@ -115,11 +97,10 @@ class _ReceivedBidsPageState extends State<ReceivedBidsPage> {
             int count = collectorStats[uid]!['count'];
             bid['averageCollectorRating'] = (total / count).toStringAsFixed(1);
           } else {
-            bid['averageCollectorRating'] = null; // TRULY A NEW COLLECTOR
+            bid['averageCollectorRating'] = null;
           }
         }
 
-        // SORT BIDS BY AMOUNT IN DESCENDING ORDER (HIGHEST BID FIRST).
         bids.sort((a, b) => (b['amount'] as num).compareTo(a['amount'] as num));
 
         setState(() => isLoading = false);
@@ -139,9 +120,6 @@ class _ReceivedBidsPageState extends State<ReceivedBidsPage> {
     }
   }
 
-  /// THIS FUNCTION HANDLES ACCEPTING A BID AND LOCKING THE TRANSACTION.
-  /// IT UPDATES THE WINNING BID STATUS TO 'ACCEPTED', REJECTS ALL OTHERS,
-  /// AND CHANGES THE LISTING STATUS TO 'BOOKED'.
   Future<void> _acceptBid(Map<String, dynamic> bid) async {
     final confirm = await showDialog<bool>(
       context: context,
@@ -188,8 +166,7 @@ class _ReceivedBidsPageState extends State<ReceivedBidsPage> {
           await docRef.update({
             'status': 'Booked',
             'acceptedBid': bid,
-            'winnerUid':
-                winningCollectorUid, // SAVED FOR FUTURE SCALABLE QUERIES
+            'winnerUid': winningCollectorUid,
             'bids': bidsList,
             'bookedAt': FieldValue.serverTimestamp(),
           });
@@ -215,13 +192,8 @@ class _ReceivedBidsPageState extends State<ReceivedBidsPage> {
     }
   }
 
-  // ==========================================================================
-  // 4. UI BUILD METHOD
-  // ==========================================================================
-
   @override
   Widget build(BuildContext context) {
-    // EDGE CASE: DISPLAY STATIC SCREEN IF LISTING IS ALREADY PROCESSED (BOOKED OR FINISHED)
     if (!isLoading &&
         listingStatus != 'Active' &&
         listingStatus != 'Pending Confirmation') {
@@ -292,7 +264,6 @@ class _ReceivedBidsPageState extends State<ReceivedBidsPage> {
       );
     }
 
-    // MAIN UI: THE ACTIVE BIDDING INTERFACE
     return Scaffold(
       backgroundColor: const Color(0xFFF2F7F3),
       appBar: AppBar(
@@ -335,183 +306,195 @@ class _ReceivedBidsPageState extends State<ReceivedBidsPage> {
                 itemBuilder: (context, index) {
                   final bid = bids[index];
                   final isHighest = index == 0;
-
-                  // EXTRACT THE DYNAMICALLY CALCULATED AVERAGE RATING
                   final avgRating = bid['averageCollectorRating'];
 
-                  return Card(
-                    elevation: isHighest ? 4 : 2,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    color: isHighest ? const Color(0xFFE8F5E9) : Colors.white,
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Expanded(
-                                child: Row(
-                                  children: [
-                                    CircleAvatar(
-                                      backgroundColor: Colors.green,
-                                      radius: 18,
-                                      child: Text(
-                                        (bid['collectorName'] ?? '?')[0]
-                                            .toUpperCase(),
-                                        style: const TextStyle(
-                                          color: Colors.white,
-                                          fontWeight: FontWeight.bold,
+                  
+                  return InkWell(
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => CollectorReviewPage(
+                            collectorUid: bid['collectorUid'] ?? '',
+                            collectorName:
+                                bid['collectorName'] ?? 'Junk Collector',
+                          ),
+                        ),
+                      );
+                    },
+                    borderRadius: BorderRadius.circular(12),
+                    child: Card(
+                      elevation: isHighest ? 4 : 2,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      color: isHighest ? const Color(0xFFE8F5E9) : Colors.white,
+                      child: Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Expanded(
+                                  child: Row(
+                                    children: [
+                                      CircleAvatar(
+                                        backgroundColor: Colors.green,
+                                        radius: 18,
+                                        // ✅ USING THE SAFE HELPER HERE
+                                        child: Text(
+                                          getSafeInitial(bid['collectorName']),
+                                          style: const TextStyle(
+                                            color: Colors.white,
+                                            fontWeight: FontWeight.bold,
+                                          ),
                                         ),
                                       ),
-                                    ),
-                                    const SizedBox(width: 12),
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            bid['collectorName'] ??
-                                                'Anonymous Collector',
-                                            style: const TextStyle(
-                                              fontWeight: FontWeight.bold,
-                                              fontSize: 16,
-                                            ),
-                                          ),
-
-                                          // DISPLAY SINGLE TRANSACTION RATING IF AVAILABLE
-                                          if ((bid['rating'] ?? 0) > 0)
-                                            Row(
-                                              children: [
-                                                const Icon(
-                                                  Icons.star,
-                                                  color: Colors.amber,
-                                                  size: 14,
-                                                ),
-                                                Text(
-                                                  '${bid['rating']}',
-                                                  style: const TextStyle(
-                                                    color: Colors.grey,
-                                                    fontSize: 12,
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-
-                                          // DISPLAY OVERALL DYNAMIC REPUTATION SCORE
-                                          if (avgRating != null) ...[
-                                            const SizedBox(height: 4),
-                                            Row(
-                                              children: [
-                                                const Icon(
-                                                  Icons.star,
-                                                  color: Colors.amber,
-                                                  size: 16,
-                                                ),
-                                                const SizedBox(width: 4),
-                                                Text(
-                                                  '$avgRating / 5.0',
-                                                  style: TextStyle(
-                                                    fontWeight: FontWeight.bold,
-                                                    color:
-                                                        Colors.amber.shade800,
-                                                    fontSize: 13,
-                                                  ),
-                                                ),
-                                                const SizedBox(width: 4),
-                                                Text(
-                                                  '(Overall Reputation)',
-                                                  style: TextStyle(
-                                                    color: Colors.grey.shade600,
-                                                    fontSize: 11,
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                          ] else ...[
-                                            const SizedBox(height: 4),
+                                      const SizedBox(width: 12),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
                                             Text(
-                                              'New Collector',
-                                              style: TextStyle(
-                                                color: Colors.grey.shade400,
-                                                fontSize: 11,
-                                                fontStyle: FontStyle.italic,
+                                              bid['collectorName'] ??
+                                                  'Anonymous Collector',
+                                              style: const TextStyle(
+                                                fontWeight: FontWeight.bold,
+                                                fontSize: 16,
                                               ),
                                             ),
+                                            if ((bid['rating'] ?? 0) > 0)
+                                              Row(
+                                                children: [
+                                                  const Icon(
+                                                    Icons.star,
+                                                    color: Colors.amber,
+                                                    size: 14,
+                                                  ),
+                                                  Text(
+                                                    '${bid['rating']}',
+                                                    style: const TextStyle(
+                                                      color: Colors.grey,
+                                                      fontSize: 12,
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            if (avgRating != null) ...[
+                                              const SizedBox(height: 4),
+                                              Row(
+                                                children: [
+                                                  const Icon(
+                                                    Icons.star,
+                                                    color: Colors.amber,
+                                                    size: 16,
+                                                  ),
+                                                  const SizedBox(width: 4),
+                                                  Text(
+                                                    '$avgRating / 5.0',
+                                                    style: TextStyle(
+                                                      fontWeight:
+                                                          FontWeight.bold,
+                                                      color:
+                                                          Colors.amber.shade800,
+                                                      fontSize: 13,
+                                                    ),
+                                                  ),
+                                                  const SizedBox(width: 4),
+                                                  Text(
+                                                    '(Overall Reputation)',
+                                                    style: TextStyle(
+                                                      color:
+                                                          Colors.grey.shade600,
+                                                      fontSize: 11,
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ] else ...[
+                                              const SizedBox(height: 4),
+                                              Text(
+                                                'New Collector',
+                                                style: TextStyle(
+                                                  color: Colors.grey.shade400,
+                                                  fontSize: 11,
+                                                  fontStyle: FontStyle.italic,
+                                                ),
+                                              ),
+                                            ],
                                           ],
-                                        ],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                Text(
+                                  'P${bid['amount']}',
+                                  style: TextStyle(
+                                    fontSize: 22,
+                                    fontWeight: FontWeight.bold,
+                                    color: isHighest
+                                        ? Colors.green
+                                        : Colors.black87,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 12),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.end,
+                              children: [
+                                if (isHighest)
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                      vertical: 4,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: Colors.green,
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: const Text(
+                                      'HIGHEST BID',
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.bold,
                                       ),
                                     ),
-                                  ],
-                                ),
-                              ),
-                              Text(
-                                'P${bid['amount']}',
-                                style: TextStyle(
-                                  fontSize: 22,
-                                  fontWeight: FontWeight.bold,
-                                  color: isHighest
-                                      ? Colors.green
-                                      : Colors.black87,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 12),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.end,
-                            children: [
-                              if (isHighest)
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 8,
-                                    vertical: 4,
                                   ),
-                                  decoration: BoxDecoration(
-                                    color: Colors.green,
-                                    borderRadius: BorderRadius.circular(8),
+                                const Spacer(),
+                                ElevatedButton.icon(
+                                  onPressed: () => _acceptBid(bid),
+                                  icon: const Icon(
+                                    Icons.check_circle,
+                                    color: Colors.white,
+                                    size: 18,
                                   ),
-                                  child: const Text(
-                                    'HIGHEST BID',
+                                  label: const Text(
+                                    'ACCEPT',
                                     style: TextStyle(
                                       color: Colors.white,
-                                      fontSize: 10,
                                       fontWeight: FontWeight.bold,
                                     ),
                                   ),
-                                ),
-                              const Spacer(),
-                              ElevatedButton.icon(
-                                onPressed: () => _acceptBid(bid),
-                                icon: const Icon(
-                                  Icons.check_circle,
-                                  color: Colors.white,
-                                  size: 18,
-                                ),
-                                label: const Text(
-                                  'ACCEPT',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.bold,
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.green,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
                                   ),
                                 ),
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.green,
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
+                              ],
+                            ),
+                          ],
+                        ),
                       ),
                     ),
-                  );
+                  ); // End of InkWell
                 },
               ),
             ),

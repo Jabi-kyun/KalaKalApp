@@ -11,8 +11,6 @@ import 'star_rating.dart';
 // AND UPDATES BOTH THE USER'S AVERAGE RATING AND THE SPECIFIC LISTING RECORD.
 class RatingDialog {
   /// THIS METHOD DISPLAYS THE RATING DIALOG.
-  /// IT TAKES THE CONTEXT, TARGET USER DETAILS, ROLE, AND LISTING ID.
-  /// IT USES A STATEFULBUILDER TO INSTANTLY UPDATE THE UI WHEN STARS ARE SELECTED.
   static Future<void> show({
     required BuildContext context,
     required String targetUserId,
@@ -40,7 +38,6 @@ class RatingDialog {
               ),
               const SizedBox(height: 16),
               InteractiveStarRating(
-                // UPDATES THE BUTTON STATE INSTANTLY WHEN A RATING IS SELECTED
                 onRatingSelected: (rating) =>
                     setDialogState(() => selectedRating = rating),
               ),
@@ -63,7 +60,6 @@ class RatingDialog {
               child: const Text('Skip'),
             ),
             ElevatedButton(
-              // BUTTON IS DISABLED UNTIL SELECTEDRATING IS GREATER THAN 0
               onPressed: selectedRating == 0
                   ? null
                   : () async {
@@ -88,8 +84,6 @@ class RatingDialog {
   }
 
   /// THIS METHOD HANDLES SUBMITTING THE RATING TO FIRESTORE.
-  /// IT USES A TRANSACTION TO SAFELY UPDATE THE TARGET USER'S AVERAGE RATING
-  /// AND THEN UPDATES THE SPECIFIC LISTING DOCUMENT TO RECORD THAT IT HAS BEEN RATED.
   static Future<void> _submitRating(
     String targetUserId,
     int rating,
@@ -97,7 +91,7 @@ class RatingDialog {
     String listingId,
   ) async {
     try {
-      // 1. UPDATE THE TARGET USER'S AVERAGE RATING IN THE USERS COLLECTION USING A TRANSACTION
+      // 1. UPDATE THE TARGET USER'S AVERAGE RATING IN THE USERS COLLECTION
       await FirebaseFirestore.instance.runTransaction((transaction) async {
         DocumentSnapshot userDoc = await transaction.get(
           FirebaseFirestore.instance.collection('users').doc(targetUserId),
@@ -105,8 +99,11 @@ class RatingDialog {
 
         if (userDoc.exists) {
           double currentTotal =
-              (userDoc.data() as Map)['totalRating']?.toDouble() ?? 0.0;
-          int count = (userDoc.data() as Map)['ratingCount'] ?? 0;
+              (userDoc.data() as Map<String, dynamic>)['totalRating']
+                  ?.toDouble() ??
+              0.0;
+          int count =
+              (userDoc.data() as Map<String, dynamic>)['ratingCount'] ?? 0;
 
           double newTotal = currentTotal + rating;
           int newCount = count + 1;
@@ -120,11 +117,16 @@ class RatingDialog {
         }
       });
 
-      // 2. SAVE THE RATING TO THE SPECIFIC LISTING SO THE UI REFLECTS THAT IT HAS BEEN RATED
+      // 2. SAVE THE RATING TO THE SPECIFIC LISTING
       await FirebaseFirestore.instance
           .collection('listings')
           .doc(listingId)
-          .update({'householdRating': rating, 'householdReview': review});
+          .update({
+            'householdRating': rating,
+            'householdReview': review,
+            
+            'acceptedBid.rating': rating.toDouble(),
+          });
     } catch (e) {
       debugPrint('Error submitting rating: $e');
     }
