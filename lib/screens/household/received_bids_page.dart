@@ -26,7 +26,7 @@ class _ReceivedBidsPageState extends State<ReceivedBidsPage> {
   List<Map<String, dynamic>> bids = [];
   String listingStatus = 'Active';
 
-  // ✅ SAFE HELPER FOR AVATAR INITIALS (Prevents [0] crash on empty strings)
+  // SAFE HELPER FOR AVATAR INITIALS (Prevents [0] crash on empty strings)
   String getSafeInitial(dynamic value) {
     if (value == null || value.toString().trim().isEmpty) return '?';
     return value.toString()[0].toUpperCase();
@@ -71,7 +71,9 @@ class _ReceivedBidsPageState extends State<ReceivedBidsPage> {
           final finishedData = finishedDoc.data();
           final acceptedBid =
               finishedData['acceptedBid'] as Map<String, dynamic>?;
-          final rating = finishedData['collectorRating'] ?? 0;
+
+          // Read rating from inside acceptedBid map, not root level
+          final rating = acceptedBid?['rating'] ?? 0;
 
           if (acceptedBid != null &&
               acceptedBid['collectorUid'] != null &&
@@ -308,7 +310,13 @@ class _ReceivedBidsPageState extends State<ReceivedBidsPage> {
                   final isHighest = index == 0;
                   final avgRating = bid['averageCollectorRating'];
 
-                  
+                  // ✅ CHECK IF RATING IS ACTUALLY VALID AND GREATER THAN 0
+                  final bool hasValidRating =
+                      avgRating != null &&
+                      avgRating.toString().isNotEmpty &&
+                      double.tryParse(avgRating.toString()) != null &&
+                      double.parse(avgRating.toString()) > 0;
+
                   return InkWell(
                     onTap: () {
                       Navigator.push(
@@ -343,7 +351,7 @@ class _ReceivedBidsPageState extends State<ReceivedBidsPage> {
                                       CircleAvatar(
                                         backgroundColor: Colors.green,
                                         radius: 18,
-                                        // ✅ USING THE SAFE HELPER HERE
+
                                         child: Text(
                                           getSafeInitial(bid['collectorName']),
                                           style: const TextStyle(
@@ -383,7 +391,8 @@ class _ReceivedBidsPageState extends State<ReceivedBidsPage> {
                                                   ),
                                                 ],
                                               ),
-                                            if (avgRating != null) ...[
+
+                                            if (hasValidRating) ...[
                                               const SizedBox(height: 4),
                                               Row(
                                                 children: [
