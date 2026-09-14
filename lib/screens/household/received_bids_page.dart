@@ -310,7 +310,7 @@ class _ReceivedBidsPageState extends State<ReceivedBidsPage> {
                   final isHighest = index == 0;
                   final avgRating = bid['averageCollectorRating'];
 
-                  // ✅ CHECK IF RATING IS ACTUALLY VALID AND GREATER THAN 0
+                  // CHECK IF RATING IS ACTUALLY VALID AND GREATER THAN 0
                   final bool hasValidRating =
                       avgRating != null &&
                       avgRating.toString().isNotEmpty &&
@@ -351,7 +351,7 @@ class _ReceivedBidsPageState extends State<ReceivedBidsPage> {
                                       CircleAvatar(
                                         backgroundColor: Colors.green,
                                         radius: 18,
-
+                                        // ✅ USING THE SAFE HELPER HERE
                                         child: Text(
                                           getSafeInitial(bid['collectorName']),
                                           style: const TextStyle(
@@ -391,10 +391,10 @@ class _ReceivedBidsPageState extends State<ReceivedBidsPage> {
                                                   ),
                                                 ],
                                               ),
-
                                             if (hasValidRating) ...[
                                               const SizedBox(height: 4),
                                               Row(
+                                                mainAxisSize: MainAxisSize.min,
                                                 children: [
                                                   const Icon(
                                                     Icons.star,
@@ -413,12 +413,17 @@ class _ReceivedBidsPageState extends State<ReceivedBidsPage> {
                                                     ),
                                                   ),
                                                   const SizedBox(width: 4),
-                                                  Text(
-                                                    '(Overall Reputation)',
-                                                    style: TextStyle(
-                                                      color:
-                                                          Colors.grey.shade600,
-                                                      fontSize: 11,
+                                                  Flexible(
+                                                    child: Text(
+                                                      '(Overall Reputation)',
+                                                      style: TextStyle(
+                                                        color: Colors
+                                                            .grey
+                                                            .shade600,
+                                                        fontSize: 11,
+                                                      ),
+                                                      overflow:
+                                                          TextOverflow.ellipsis,
                                                     ),
                                                   ),
                                                 ],

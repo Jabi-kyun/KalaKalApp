@@ -83,7 +83,7 @@ class RatingDialog {
     );
   }
 
-  /// THIS METHOD HANDLES SUBMITTING THE RATING TO FIRESTORE.
+
   static Future<void> _submitRating(
     String targetUserId,
     int rating,
@@ -91,7 +91,7 @@ class RatingDialog {
     String listingId,
   ) async {
     try {
-      // 1. UPDATE THE TARGET USER'S AVERAGE RATING IN THE USERS COLLECTION
+      // UPDATE THE TARGET USER'S AVERAGE RATING IN THE USERS COLLECTION
       await FirebaseFirestore.instance.runTransaction((transaction) async {
         DocumentSnapshot userDoc = await transaction.get(
           FirebaseFirestore.instance.collection('users').doc(targetUserId),
@@ -117,7 +117,7 @@ class RatingDialog {
         }
       });
 
-      // 2. SAVE THE RATING TO THE SPECIFIC LISTING
+   // Updates the specific listing document with the new rating and review, as well as the acceptedBid's rating.
       await FirebaseFirestore.instance
           .collection('listings')
           .doc(listingId)
