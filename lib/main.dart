@@ -39,7 +39,7 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      title: 'KalaKalApp',
+      title: 'KalApp',
       home: const SplashPage(),
     );
   }
