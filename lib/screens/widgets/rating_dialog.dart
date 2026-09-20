@@ -1,16 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'star_rating.dart';
 
-// ============================================================================
-// CLASS DEFINITION
-// ============================================================================
-
-// THIS CLASS DEFINES A REUSABLE RATING DIALOG.
-// IT ALLOWS USERS TO RATE AND REVIEW ANOTHER USER (E.G., A COLLECTOR)
-// AND UPDATES BOTH THE USER'S AVERAGE RATING AND THE SPECIFIC LISTING RECORD.
 class RatingDialog {
-  /// THIS METHOD DISPLAYS THE RATING DIALOG.
   static Future<void> show({
     required BuildContext context,
     required String targetUserId,
@@ -83,7 +76,6 @@ class RatingDialog {
     );
   }
 
-
   static Future<void> _submitRating(
     String targetUserId,
     int rating,
@@ -91,12 +83,11 @@ class RatingDialog {
     String listingId,
   ) async {
     try {
-      // UPDATE THE TARGET USER'S AVERAGE RATING IN THE USERS COLLECTION
+      // 1. Update Collector's Aggregate Rating (Atomic Transaction)
       await FirebaseFirestore.instance.runTransaction((transaction) async {
         DocumentSnapshot userDoc = await transaction.get(
           FirebaseFirestore.instance.collection('users').doc(targetUserId),
         );
-
         if (userDoc.exists) {
           double currentTotal =
               (userDoc.data() as Map<String, dynamic>)['totalRating']
@@ -104,27 +95,33 @@ class RatingDialog {
               0.0;
           int count =
               (userDoc.data() as Map<String, dynamic>)['ratingCount'] ?? 0;
-
-          double newTotal = currentTotal + rating;
-          int newCount = count + 1;
-          double newAverage = newTotal / newCount;
+          double newAverage = (currentTotal + rating) / (count + 1);
 
           transaction.update(userDoc.reference, {
-            'totalRating': newTotal,
-            'ratingCount': newCount,
+            'totalRating': FieldValue.increment(rating.toDouble()),
+            'ratingCount': FieldValue.increment(1),
             'averageRating': newAverage,
           });
         }
       });
 
-   // Updates the specific listing document with the new rating and review, as well as the acceptedBid's rating.
+      // 2. Create Dedicated Feedback Document (CRITICAL FOR COLLECTOR HISTORY)
+      await FirebaseFirestore.instance.collection('feedback').add({
+        'collectorId': targetUserId,
+        'householdId': FirebaseAuth.instance.currentUser!.uid,
+        'listingId': listingId,
+        'rating': rating,
+        'comment': review,
+        'timestamp': FieldValue.serverTimestamp(),
+      });
+
+      // 3. Update Listing Denormalization (For Instant UI Updates)
       await FirebaseFirestore.instance
           .collection('listings')
           .doc(listingId)
           .update({
-            'householdRating': rating,
+            'collectorRating': rating, // STANDARDIZED FIELD NAME
             'householdReview': review,
-            
             'acceptedBid.rating': rating.toDouble(),
           });
     } catch (e) {
