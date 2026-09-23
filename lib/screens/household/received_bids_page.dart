@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:intl/intl.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/top_snackbar.dart';
-// IMPORT THE NEW REVIEW PAGE
+import '../widgets/pickup_scheduler_widget.dart';
 import '../collector/collector_review_page.dart';
 
 class ReceivedBidsPage extends StatefulWidget {
@@ -26,7 +27,6 @@ class _ReceivedBidsPageState extends State<ReceivedBidsPage> {
   List<Map<String, dynamic>> bids = [];
   String listingStatus = 'Active';
 
-  // SAFE HELPER FOR AVATAR INITIALS (Prevents [0] crash on empty strings)
   String getSafeInitial(dynamic value) {
     if (value == null || value.toString().trim().isEmpty) return '?';
     return value.toString()[0].toUpperCase();
@@ -52,7 +52,8 @@ class _ReceivedBidsPageState extends State<ReceivedBidsPage> {
         listingStatus = data?['status'] ?? 'Active';
 
         if (listingStatus != 'Active' &&
-            listingStatus != 'Pending Confirmation') {
+            listingStatus != 'Pending Confirmation' &&
+            listingStatus != 'Pending') {
           setState(() => isLoading = false);
           return;
         }
@@ -72,7 +73,6 @@ class _ReceivedBidsPageState extends State<ReceivedBidsPage> {
           final acceptedBid =
               finishedData['acceptedBid'] as Map<String, dynamic>?;
 
-          // Read rating from inside acceptedBid map, not root level
           final rating = acceptedBid?['rating'] ?? 0;
 
           if (acceptedBid != null &&
@@ -112,7 +112,6 @@ class _ReceivedBidsPageState extends State<ReceivedBidsPage> {
     } catch (e) {
       debugPrint('Error fetching bids: $e');
       if (mounted) {
-        setState(() => isLoading = false);
         TopSnackBar.show(
           context,
           message: 'Failed to load bids: $e',
@@ -123,73 +122,97 @@ class _ReceivedBidsPageState extends State<ReceivedBidsPage> {
   }
 
   Future<void> _acceptBid(Map<String, dynamic> bid) async {
-    final confirm = await showDialog<bool>(
+    final scheduleResult = await showModalBottomSheet<Map<String, dynamic>>(
       context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('Accept Bid?'),
-        content: Text(
-          'Accept P${bid['amount']} from ${bid['collectorName']}?\n\n'
-          'This will lock the transaction and share your location.',
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Padding(
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.of(context).viewInsets.bottom,
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(context, true),
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
-            child: const Text('Accept', style: TextStyle(color: Colors.white)),
-          ),
-        ],
+        child: PickupSchedulerWidget(
+          collectorUid: bid['collectorUid'],
+          onScheduleConfirmed: (selectedDate, timeSlot) {
+            Navigator.pop(context, {
+              'date': selectedDate,
+              'timeSlot': timeSlot,
+            });
+          },
+        ),
       ),
     );
 
-    if (confirm == true && mounted) {
-      try {
-        final docRef = FirebaseFirestore.instance
-            .collection('listings')
-            .doc(widget.listingId);
-        final doc = await docRef.get();
+    if (scheduleResult == null || !mounted) return;
 
-        if (doc.exists) {
-          final data = doc.data()!;
-          List<dynamic> bidsList = List<dynamic>.from(data['bids'] ?? []);
-          final winningCollectorUid = bid['collectorUid'];
+    final selectedDate = scheduleResult['date'] as DateTime;
+    final timeSlot = scheduleResult['timeSlot'] as String;
+    final startTime = timeSlot.split('-')[0];
+    final dateString = DateFormat('yyyy-MM-dd').format(selectedDate);
 
-          for (var i = 0; i < bidsList.length; i++) {
-            if (bidsList[i]['collectorUid'] == winningCollectorUid) {
-              bidsList[i]['status'] = 'Accepted';
-            } else {
-              bidsList[i]['status'] = 'Rejected';
-            }
-          }
+    try {
+      final docRef = FirebaseFirestore.instance
+          .collection('listings')
+          .doc(widget.listingId);
+      final doc = await docRef.get();
 
-          await docRef.update({
-            'status': 'Booked',
-            'acceptedBid': bid,
-            'winnerUid': winningCollectorUid,
-            'bids': bidsList,
-            'bookedAt': FieldValue.serverTimestamp(),
-          });
+      if (doc.exists) {
+        final data = doc.data()!;
+        List<dynamic> bidsList = List<dynamic>.from(data['bids'] ?? []);
+        final winningCollectorUid = bid['collectorUid'];
 
-          if (mounted) {
-            TopSnackBar.show(
-              context,
-              message: 'Bid accepted successfully!',
-              backgroundColor: Colors.green,
-            );
-            Navigator.pop(context);
+        for (var i = 0; i < bidsList.length; i++) {
+          if (bidsList[i]['collectorUid'] == winningCollectorUid) {
+            bidsList[i]['status'] = 'Accepted';
+          } else {
+            bidsList[i]['status'] = 'Rejected';
           }
         }
-      } catch (e) {
+
+        await docRef.update({
+          'status': 'Pending',
+          'acceptedBid': bid,
+          'winnerUid': winningCollectorUid,
+          'bids': bidsList,
+          'scheduledAt': Timestamp.fromDate(selectedDate),
+          'scheduledDate': dateString,
+          'timeSlot': timeSlot,
+          'expiresAt': Timestamp.fromDate(
+            DateTime.now().add(const Duration(hours: 24)),
+          ),
+          'confirmedAt': null,
+          'declinedAt': null,
+        });
+
+        await FirebaseFirestore.instance
+            .collection('timeSlots')
+            .doc('${winningCollectorUid}_${dateString}_$startTime')
+            .set({
+              'collectorUid': winningCollectorUid,
+              'date': dateString,
+              'startTime': startTime,
+              'endTime': timeSlot.split('-')[1],
+              'isBooked': true,
+              'status': 'pending',
+              'listingId': widget.listingId,
+              'createdAt': FieldValue.serverTimestamp(),
+            });
+
         if (mounted) {
           TopSnackBar.show(
             context,
-            message: 'Error accepting bid: $e',
-            backgroundColor: Colors.red,
+            message: 'Pickup scheduled! Waiting for collector confirmation.',
+            backgroundColor: Colors.green,
           );
+          Navigator.pop(context);
         }
+      }
+    } catch (e) {
+      if (mounted) {
+        TopSnackBar.show(
+          context,
+          message: 'Error scheduling pickup: $e',
+          backgroundColor: Colors.red,
+        );
       }
     }
   }
@@ -198,7 +221,8 @@ class _ReceivedBidsPageState extends State<ReceivedBidsPage> {
   Widget build(BuildContext context) {
     if (!isLoading &&
         listingStatus != 'Active' &&
-        listingStatus != 'Pending Confirmation') {
+        listingStatus != 'Pending Confirmation' &&
+        listingStatus != 'Pending') {
       return Scaffold(
         backgroundColor: const Color(0xFFF2F7F3),
         appBar: AppBar(
@@ -310,7 +334,6 @@ class _ReceivedBidsPageState extends State<ReceivedBidsPage> {
                   final isHighest = index == 0;
                   final avgRating = bid['averageCollectorRating'];
 
-                  // CHECK IF RATING IS ACTUALLY VALID AND GREATER THAN 0
                   final bool hasValidRating =
                       avgRating != null &&
                       avgRating.toString().isNotEmpty &&
@@ -351,7 +374,6 @@ class _ReceivedBidsPageState extends State<ReceivedBidsPage> {
                                       CircleAvatar(
                                         backgroundColor: Colors.green,
                                         radius: 18,
-                                        // ✅ USING THE SAFE HELPER HERE
                                         child: Text(
                                           getSafeInitial(bid['collectorName']),
                                           style: const TextStyle(
@@ -508,7 +530,7 @@ class _ReceivedBidsPageState extends State<ReceivedBidsPage> {
                         ),
                       ),
                     ),
-                  ); // End of InkWell
+                  );
                 },
               ),
             ),

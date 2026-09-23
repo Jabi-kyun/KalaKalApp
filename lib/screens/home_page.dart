@@ -13,6 +13,7 @@ import 'collector/nearby_listings_page.dart';
 import 'collector/my_bids_page.dart';
 import 'collector/history_page.dart';
 import 'collector/edit_profile_page.dart';
+import 'collector/CollectorMapHomeScreen.dart';
 import 'admin/admin_dashboard_page.dart';
 import 'about_us_page.dart';
 import 'widgets/kala_kal_app_bar.dart';
@@ -35,7 +36,6 @@ class _HomePageState extends State<HomePage> {
   int pendingBidCount = 0;
   int householdPendingBidsCount = 0;
 
-  // STREAM SUBSCRIPTION TO CANCEL WHEN PAGE IS CLOSED
   StreamSubscription? _listingsSubscription;
 
   @override
@@ -46,11 +46,10 @@ class _HomePageState extends State<HomePage> {
 
   @override
   void dispose() {
-    _listingsSubscription?.cancel(); // Clean up listener
+    _listingsSubscription?.cancel();
     super.dispose();
   }
 
-  /// STARTS A REAL-TIME LISTENER FOR HOUSEHOLDS
   void _startRealTimeListener(String uid) {
     _listingsSubscription = FirebaseFirestore.instance
         .collection('listings')
@@ -101,7 +100,7 @@ class _HomePageState extends State<HomePage> {
           _fetchCollectorStats();
         } else if (userRole == 'household') {
           _fetchHouseholdStats();
-          _startRealTimeListener(user.uid); // START LISTENER
+          _startRealTimeListener(user.uid);
         }
       } else {
         throw Exception('Profile not found');
@@ -152,7 +151,10 @@ class _HomePageState extends State<HomePage> {
           .get();
       final pendingSnapshot = await FirebaseFirestore.instance
           .collection('listings')
-          .where('status', whereIn: ['Booked', 'Pending Confirmation'])
+          .where(
+            'status',
+            whereIn: ['Booked', 'Pending Confirmation', 'Scheduled'],
+          )
           .get();
       int bidCount = 0;
       for (var doc in pendingSnapshot.docs) {
@@ -209,7 +211,7 @@ class _HomePageState extends State<HomePage> {
 
   void _onMenuSelected(String value) {
     switch (value) {
-      case 'edit_profile':
+      case 'edit_profile': // ✅ RESTORED EDIT PROFILE
         if (userRole == 'collector') {
           Navigator.push(
             context,
@@ -253,6 +255,7 @@ class _HomePageState extends State<HomePage> {
             onSelected: _onMenuSelected,
             itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
               const PopupMenuItem<String>(
+                // ✅ RESTORED IN MENU
                 value: 'edit_profile',
                 child: ListTile(
                   leading: Icon(Icons.person_outline, color: Colors.green),
@@ -282,14 +285,14 @@ class _HomePageState extends State<HomePage> {
           const SizedBox(width: 8),
         ],
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16),
-        child: userRole == 'admin'
-            ? _buildAdminDashboard()
-            : (userRole == 'household'
-                  ? _buildHouseholdDashboard()
-                  : _buildCollectorDashboard()),
-      ),
+      body: userRole == 'collector'
+          ? _buildCollectorDashboard()
+          : Padding(
+              padding: const EdgeInsets.all(16),
+              child: userRole == 'admin'
+                  ? _buildAdminDashboard()
+                  : _buildHouseholdDashboard(),
+            ),
     );
   }
 
@@ -470,100 +473,43 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  // ✅ UPDATED: CLEANER DASHBOARD WITH ONLY 2 CARDS (Profile moved to top-right menu)
   Widget _buildCollectorDashboard() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+    return Stack(
       children: [
-        Row(
-          children: [
-            CircleAvatar(
-              radius: 32,
-              backgroundColor: Colors.green.shade100,
-              backgroundImage: userProfilePic != null
-                  ? MemoryImage(base64Decode(userProfilePic!))
-                  : null,
-              child: userProfilePic == null
-                  ? Text(
-                      userName.isNotEmpty ? userName[0].toUpperCase() : '?',
-                      style: TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.green.shade800,
-                      ),
-                    )
-                  : null,
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Hello, $userName! ',
-                    style: const TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.green,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  const Text(
-                    'Find nearby recyclables to collect.',
-                    style: TextStyle(color: Colors.grey, fontSize: 14),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 24),
-        Expanded(
-          child: GridView.count(
-            crossAxisCount: 2,
-            crossAxisSpacing: 16,
-            mainAxisSpacing: 16,
+        Positioned.fill(child: CollectorMapHomeScreen()),
+        Positioned(
+          top: 16,
+          left: 16,
+          right: 16,
+          child: Row(
             children: [
-              ActionCard(
-                icon: Icons.list_alt,
-                title: 'Nearby Listings',
-                subtitle: 'Find scraps near you',
-                color: Colors.green,
-                badge: true,
-                badgeCount: activeListingsCount,
-                onTap: () async {
-                  await Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => const NearbyListingsPage(),
-                    ),
-                  );
-                  _fetchCollectorStats();
-                },
-              ),
-              ActionCard(
-                icon: Icons.monetization_on,
-                title: 'My Bids',
-                subtitle: 'Track your offers',
-                color: Colors.orange,
-                badge: true,
-                badgeCount: pendingBidCount,
-                onTap: () async {
-                  await Navigator.push(
+              Expanded(
+                child: _buildFloatingActionCard(
+                  icon: Icons.monetization_on,
+                  title: 'My Bids',
+                  subtitle: '$pendingBidCount active',
+                  color: Colors.orange,
+                  badge: pendingBidCount > 0,
+                  badgeCount: pendingBidCount,
+                  onTap: () => Navigator.push(
                     context,
                     MaterialPageRoute(builder: (_) => const MyBidsPage()),
-                  );
-                  _fetchCollectorStats();
-                },
+                  ).then((_) => _fetchCollectorStats()),
+                ),
               ),
-              ActionCard(
-                icon: Icons.history,
-                title: 'History',
-                subtitle: 'Past collections',
-                color: Colors.purple,
-                onTap: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => const CollectorHistoryPage(),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _buildFloatingActionCard(
+                  icon: Icons.history,
+                  title: 'History',
+                  subtitle: 'Past collections',
+                  color: Colors.purple,
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const CollectorHistoryPage(),
+                    ),
                   ),
                 ),
               ),
@@ -571,6 +517,80 @@ class _HomePageState extends State<HomePage> {
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildFloatingActionCard({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required Color color,
+    required VoidCallback onTap,
+    bool badge = false,
+    int? badgeCount,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Colors.white.withOpacity(0.95),
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.1),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            Column(
+              children: [
+                Icon(icon, size: 32, color: color),
+                const SizedBox(height: 8),
+                Text(
+                  title,
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
+                    color: color,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  subtitle,
+                  style: const TextStyle(color: Colors.grey, fontSize: 11),
+                  textAlign: TextAlign.center,
+                ),
+              ],
+            ),
+            if (badge && badgeCount != null && badgeCount > 0)
+              Positioned(
+                right: -4,
+                top: -4,
+                child: Container(
+                  padding: const EdgeInsets.all(4),
+                  decoration: const BoxDecoration(
+                    color: Colors.red,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Text(
+                    badgeCount! > 99 ? '99+' : '$badgeCount',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
     );
   }
 }

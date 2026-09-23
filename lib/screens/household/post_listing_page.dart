@@ -233,7 +233,7 @@ class _PostListingPageState extends State<PostListingPage> {
         return;
       }
 
-      _currentPosition = await Geolocator.getCurrentPosition(
+      _currentPosition = await Geolocator.getCurrentPosition( // location captured function
         desiredAccuracy: LocationAccuracy.high,
       );
 

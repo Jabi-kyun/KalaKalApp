@@ -8,13 +8,6 @@ import '../widgets/kala_kal_app_bar.dart';
 import '../widgets/top_snackbar.dart';
 import 'place_bid_page.dart';
 
-// ============================================================================
-// WIDGET CLASS
-// ============================================================================
-
-// THIS CLASS DEFINES THE NEARBY LISTINGS PAGE FOR COLLECTORS.
-// IT FETCHES ACTIVE LISTINGS AND STRICTLY FILTERS THEM BY A 1KM RADIUS
-// USING THE HAVERSINE FORMULA SO COLLECTORS ONLY SEE RELEVANT OPPORTUNITIES.
 class NearbyListingsPage extends StatefulWidget {
   const NearbyListingsPage({super.key});
 
@@ -23,39 +16,22 @@ class NearbyListingsPage extends StatefulWidget {
 }
 
 class _NearbyListingsPageState extends State<NearbyListingsPage> {
-  // ==========================================================================
-  // 1. STATE VARIABLES
-  // ==========================================================================
-
-  // THESE HOLD THE LOADING STATE AND THE FILTERED LIST OF NEARBY LISTINGS.
   bool isLoading = true;
   List<Map<String, dynamic>> listings = [];
-
-  // ==========================================================================
-  // 2. LIFECYCLE METHODS
-  // ==========================================================================
 
   @override
   void initState() {
     super.initState();
-    // AUTOMATICALLY FETCH AND FILTER NEARBY LISTINGS WHEN THE PAGE OPENS.
     _fetchActiveListings();
   }
 
-  // ==========================================================================
-  // 3. HELPER & DATA FETCHING FUNCTIONS
-  // ==========================================================================
-
-  /// THIS FUNCTION CALCULATES THE EXACT DISTANCE.
-  /// IT USES THE HAVERSINE FORMULA TO CALCULATE THE PRECISE DISTANCE IN KILOMETERS
-  /// BETWEEN TWO GPS COORDINATES (THE COLLECTOR'S CURRENT LOCATION AND THE LISTING'S LOCATION).
   double _calculateDistance(
     double lat1,
     double lng1,
     double lat2,
     double lng2,
   ) {
-    const double R = 6371; // EARTH'S RADIUS IN KM
+    const double R = 6371;
     final dLat = (lat2 - lat1) * math.pi / 180;
     final dLng = (lng2 - lng1) * math.pi / 180;
     final a =
@@ -68,34 +44,46 @@ class _NearbyListingsPageState extends State<NearbyListingsPage> {
     return R * c;
   }
 
-  /// THIS FUNCTION FETCHES AND STRICTLY FILTERS LISTINGS BY A 1KM RADIUS.
-  /// SINCE FIRESTORE DOES NOT NATIVELY SUPPORT COMPLEX GEOSPATIAL DISTANCE QUERIES,
-  /// THIS FUNCTION: 1) GETS THE COLLECTOR'S LIVE GPS, 2) FETCHES ALL ACTIVE LISTINGS,
-  /// AND 3) FILTERS THEM LOCALLY IN DART USING THE HAVERSINE FORMULA TO ENSURE
-  /// ONLY LISTINGS WITHIN EXACTLY 1.0 KM ARE DISPLAYED TO THE COLLECTOR.
+  // ✅ NEW: TIME AGO HELPER
+  String _getTimeAgo(dynamic timestamp) {
+    if (timestamp == null) return '';
+    DateTime postTime;
+    if (timestamp is Timestamp) {
+      postTime = timestamp.toDate();
+    } else if (timestamp is String) {
+      try {
+        postTime = DateTime.parse(timestamp);
+      } catch (e) {
+        return '';
+      }
+    } else {
+      return '';
+    }
+    final now = DateTime.now();
+    final difference = now.difference(postTime);
+    if (difference.inSeconds < 60) return 'Just now';
+    if (difference.inMinutes < 60) return '${difference.inMinutes} min ago';
+    if (difference.inHours < 24) return '${difference.inHours} hr ago';
+    if (difference.inDays < 7) return '${difference.inDays} days ago';
+    return DateFormat('MMM d').format(postTime);
+  }
+
   Future<void> _fetchActiveListings() async {
     setState(() => isLoading = true);
     try {
-      // STEP 1: GET THE COLLECTOR'S CURRENT LIVE GPS LOCATION.
       Position currentPosition = await Geolocator.getCurrentPosition(
         desiredAccuracy: LocationAccuracy.high,
       );
-
-      // STEP 2: FETCH ALL ACTIVE LISTINGS FROM FIRESTORE.
       final snapshot = await FirebaseFirestore.instance
           .collection('listings')
           .where('status', isEqualTo: 'Active')
           .orderBy('createdAt', descending: true)
           .get();
 
-      // STEP 3: FILTER THEM LOCALLY BASED ON THE STRICT 1KM RULE.
       List<Map<String, dynamic>> nearbyListings = [];
-
       for (var doc in snapshot.docs) {
         final data = doc.data();
         data['id'] = doc.id;
-
-        // ENSURE THE LISTING HAS VALID SAVED COORDINATES BEFORE CALCULATING.
         if (data['location'] != null &&
             data['location']['latitude'] != null &&
             data['location']['longitude'] != null) {
@@ -105,11 +93,8 @@ class _NearbyListingsPageState extends State<NearbyListingsPage> {
             data['location']['latitude'],
             data['location']['longitude'],
           );
-
-          // STRICT 1KM FILTER: DISCARD ANYTHING FURTHER THAN 1.0 KM.
           if (distance <= 1.0) {
-            data['distance'] =
-                distance; // SAVE DISTANCE TO DISPLAY ON THE UI CARD
+            data['distance'] = distance;
             nearbyListings.add(data);
           }
         }
@@ -134,12 +119,6 @@ class _NearbyListingsPageState extends State<NearbyListingsPage> {
     }
   }
 
-  // ==========================================================================
-  // 4. UI COMPONENT FUNCTIONS
-  // ==========================================================================
-
-  /// THIS FUNCTION HANDLES THE FULL-SCREEN IMAGE GALLERY.
-  /// IT OPENS A DARK-THEMED, SWIPEABLE, PINCH-TO-ZOOM VIEWER FOR THE LISTING'S PHOTOS.
   void _showImageGallery(List<String> images, int initialIndex) {
     Navigator.push(
       context,
@@ -162,19 +141,14 @@ class _NearbyListingsPageState extends State<NearbyListingsPage> {
               PageView.builder(
                 controller: PageController(initialPage: initialIndex),
                 itemCount: images.length,
-                onPageChanged: (index) {
-                  setState(() {}); // UPDATE THE COUNTER TEXT ON SWIPE
-                },
-                itemBuilder: (context, index) {
-                  return InteractiveViewer(
-                    child: Image.memory(
-                      base64Decode(images[index]),
-                      fit: BoxFit.contain,
-                    ),
-                  );
-                },
+                onPageChanged: (index) => setState(() {}),
+                itemBuilder: (context, index) => InteractiveViewer(
+                  child: Image.memory(
+                    base64Decode(images[index]),
+                    fit: BoxFit.contain,
+                  ),
+                ),
               ),
-              // IMAGE COUNTER OVERLAY AT THE BOTTOM.
               Positioned(
                 bottom: 20,
                 left: 0,
@@ -207,8 +181,6 @@ class _NearbyListingsPageState extends State<NearbyListingsPage> {
     );
   }
 
-  /// THIS FUNCTION HANDLES THE DRAGGABLE LISTING DETAILS BOTTOM SHEET.
-  /// IT DISPLAYS THE FULL LISTING INFORMATION, IMAGES, AND THE "PLACE BID" ACTION BUTTON.
   void _showListingBottomSheet(Map<String, dynamic> listing) {
     showModalBottomSheet(
       context: context,
@@ -227,7 +199,6 @@ class _NearbyListingsPageState extends State<NearbyListingsPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // DRAG HANDLE INDICATOR.
                   Center(
                     child: Container(
                       width: 40,
@@ -240,7 +211,6 @@ class _NearbyListingsPageState extends State<NearbyListingsPage> {
                   ),
                   const SizedBox(height: 16),
 
-                  // HORIZONTAL IMAGE SLIDER.
                   if (listing['images'] != null &&
                       (listing['images'] as List).isNotEmpty)
                     SizedBox(
@@ -292,8 +262,6 @@ class _NearbyListingsPageState extends State<NearbyListingsPage> {
                     ),
 
                   const SizedBox(height: 16),
-
-                  // LISTING DETAILS.
                   Text(
                     listing['category'] ?? 'Unknown',
                     style: const TextStyle(
@@ -319,14 +287,34 @@ class _NearbyListingsPageState extends State<NearbyListingsPage> {
                     listing['description'] ?? 'No description',
                     style: const TextStyle(color: Colors.grey),
                   ),
+
+                  // ✅ NEW: TIME POSTED DISPLAY
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.access_time,
+                        size: 14,
+                        color: Colors.grey.shade600,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        _getTimeAgo(listing['createdAt']),
+                        style: TextStyle(
+                          color: Colors.grey.shade600,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
+
                   const SizedBox(height: 24),
 
-                  // PLACE BID ACTION BUTTON.
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton.icon(
                       onPressed: () {
-                        Navigator.pop(context); // CLOSE BOTTOM SHEET
+                        Navigator.pop(context);
                         Navigator.push(
                           context,
                           MaterialPageRoute(
@@ -369,11 +357,6 @@ class _NearbyListingsPageState extends State<NearbyListingsPage> {
     );
   }
 
-  // ==========================================================================
-  // 5. UI BUILD METHOD
-  // ==========================================================================
-
-  /// THIS METHOD RENDERS THE VISUAL LAYOUT OF THE NEARBY LISTINGS PAGE.
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -382,7 +365,6 @@ class _NearbyListingsPageState extends State<NearbyListingsPage> {
         title: 'Nearby Listings',
         showBackButton: true,
         actions: [
-          // BADGE SHOWING THE TOTAL COUNT OF FILTERED NEARBY LISTINGS.
           Container(
             margin: const EdgeInsets.only(right: 16),
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -407,9 +389,7 @@ class _NearbyListingsPageState extends State<NearbyListingsPage> {
         ],
       ),
       body: isLoading
-          // SHOW LOADING SPINNER WHILE FETCHING AND FILTERING DATA.
           ? const Center(child: CircularProgressIndicator(color: Colors.green))
-          // SHOW EMPTY STATE SPECIFICALLY MENTIONING THE 1KM RADIUS.
           : listings.isEmpty
           ? const Center(
               child: Column(
@@ -429,7 +409,6 @@ class _NearbyListingsPageState extends State<NearbyListingsPage> {
                 ],
               ),
             )
-          // SHOW THE SCROLLABLE LIST OF STRICTLY FILTERED LISTINGS.
           : RefreshIndicator(
               onRefresh: _fetchActiveListings,
               child: ListView.builder(
@@ -437,11 +416,6 @@ class _NearbyListingsPageState extends State<NearbyListingsPage> {
                 itemCount: listings.length,
                 itemBuilder: (context, index) {
                   final item = listings[index];
-                  final date = item['createdAt'] != null
-                      ? DateFormat(
-                          'MMM dd, yyyy',
-                        ).format((item['createdAt'] as Timestamp).toDate())
-                      : 'Unknown Date';
 
                   return Card(
                     elevation: 2,
@@ -451,7 +425,6 @@ class _NearbyListingsPageState extends State<NearbyListingsPage> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // HORIZONTAL IMAGE SLIDER ON THE CARD.
                         if (item['images'] != null &&
                             (item['images'] as List).isNotEmpty)
                           SizedBox(
@@ -509,7 +482,6 @@ class _NearbyListingsPageState extends State<NearbyListingsPage> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              // TOP ROW: CATEGORY CHIP AND EXACT DISTANCE.
                               Row(
                                 mainAxisAlignment:
                                     MainAxisAlignment.spaceBetween,
@@ -531,7 +503,6 @@ class _NearbyListingsPageState extends State<NearbyListingsPage> {
                                       ),
                                     ),
                                   ),
-                                  // DISPLAYS THE EXACT CALCULATED DISTANCE.
                                   Text(
                                     '📍 ${(item['distance'] as double).toStringAsFixed(2)} km',
                                     style: TextStyle(
@@ -544,7 +515,6 @@ class _NearbyListingsPageState extends State<NearbyListingsPage> {
                               ),
                               const SizedBox(height: 12),
 
-                              // LISTING DETAILS.
                               Text(
                                 item['householdName'] ?? 'Anonymous Household',
                                 style: const TextStyle(
@@ -569,17 +539,27 @@ class _NearbyListingsPageState extends State<NearbyListingsPage> {
                               ),
                               const SizedBox(height: 12),
 
-                              // BOTTOM ROW: DATE AND PLACE BID BUTTON.
+                              // ✅ UPDATED: BOTTOM ROW WITH TIME AGO
                               Row(
                                 mainAxisAlignment:
                                     MainAxisAlignment.spaceBetween,
                                 children: [
-                                  Text(
-                                    date,
-                                    style: const TextStyle(
-                                      color: Colors.grey,
-                                      fontSize: 12,
-                                    ),
+                                  Row(
+                                    children: [
+                                      Icon(
+                                        Icons.access_time,
+                                        size: 14,
+                                        color: Colors.grey.shade600,
+                                      ),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        _getTimeAgo(item['createdAt']),
+                                        style: const TextStyle(
+                                          color: Colors.grey,
+                                          fontSize: 12,
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                   ElevatedButton.icon(
                                     onPressed: () =>

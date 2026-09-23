@@ -1,16 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:http/http.dart' as http; // Added Import
-import 'dart:convert'; // Added Import
-import 'package:flutter_dotenv/flutter_dotenv.dart'; // To get API Key
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import '../widgets/kala_kal_app_bar.dart';
 import '../widgets/primary_button.dart';
 import '../widgets/top_snackbar.dart';
-
-// ============================================================================
-// WIDGET CLASS
-// ============================================================================
 
 class PlaceBidPage extends StatefulWidget {
   final String listingId;
@@ -42,10 +38,8 @@ class _PlaceBidPageState extends State<PlaceBidPage> {
     super.dispose();
   }
 
-  
   Future<void> _sendNotificationToHousehold(String householdUid) async {
     try {
-      // 1. Get Household's OneSignal ID
       final userDoc = await FirebaseFirestore.instance
           .collection('users')
           .doc(householdUid)
@@ -54,11 +48,8 @@ class _PlaceBidPageState extends State<PlaceBidPage> {
       final onesignalId = userDoc.data()?['onesignalId'];
 
       if (onesignalId != null) {
-        // 2. Prepare the API Request
         final String appId = dotenv.env['ONESIGNAL_APP_ID'] ?? '';
-        final String apiKey =
-            dotenv.env['ONESIGNAL_REST_API_KEY'] ??
-            ''; // Get this from OneSignal Dashboard
+        final String apiKey = dotenv.env['ONESIGNAL_REST_API_KEY'] ?? '';
 
         final url = Uri.parse('https://onesignal.com/api/v1/notifications');
 
@@ -72,7 +63,6 @@ class _PlaceBidPageState extends State<PlaceBidPage> {
           "data": {"type": "new_bid", "listingId": widget.listingId},
         });
 
-        // 3. Send the POST Request
         final response = await http.post(
           url,
           headers: {
@@ -134,7 +124,6 @@ class _PlaceBidPageState extends State<PlaceBidPage> {
         'status': 'Pending',
       };
 
-      // Get Listing Data to find Household UID
       final listingDoc = await FirebaseFirestore.instance
           .collection('listings')
           .doc(widget.listingId)
@@ -148,7 +137,6 @@ class _PlaceBidPageState extends State<PlaceBidPage> {
             'bids': FieldValue.arrayUnion([newBid]),
           });
 
-      // TRIGGER NOTIFICATION IF WE HAVE THE HOUSEHOLD UID
       if (householdUid != null) {
         await _sendNotificationToHousehold(householdUid);
       }
@@ -160,7 +148,8 @@ class _PlaceBidPageState extends State<PlaceBidPage> {
         message: 'Bid of ₱${amount.toStringAsFixed(2)} placed successfully!',
         backgroundColor: Colors.green,
       );
-      Navigator.pop(context);
+
+      // ✅ FIXED: Only pop once to return to the Map screen
       Navigator.pop(context);
     } catch (e) {
       if (!mounted) return;

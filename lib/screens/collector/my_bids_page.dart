@@ -6,7 +6,7 @@ import '../widgets/kala_kal_app_bar.dart';
 import '../widgets/status_chip.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/top_snackbar.dart';
-import 'navigate_to_pickup_page.dart';
+import 'InAppRoutePage.dart';
 
 class MyBidsPage extends StatefulWidget {
   const MyBidsPage({super.key});
@@ -18,7 +18,6 @@ class _MyBidsPageState extends State<MyBidsPage> {
   bool isLoading = true;
   List<Map<String, dynamic>> myBids = [];
 
-  // ✅ SAFE HELPER FOR HOUSEHOLD NAMES
   String getSafeDisplay(dynamic value, String fallback) {
     if (value == null || value.toString().trim().isEmpty) return fallback;
     return value.toString();
@@ -35,13 +34,22 @@ class _MyBidsPageState extends State<MyBidsPage> {
     try {
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) return;
+
+      // Added 'Pending' and 'Scheduled' to the query
       final snapshot = await FirebaseFirestore.instance
           .collection('listings')
           .where(
             'status',
-            whereIn: ['Active', 'Booked', 'Pending Confirmation'],
+            whereIn: [
+              'Active',
+              'Booked',
+              'Pending Confirmation',
+              'Pending',
+              'Scheduled',
+            ],
           )
           .get();
+
       List<Map<String, dynamic>> tempBids = [];
       for (var doc in snapshot.docs) {
         final data = doc.data();
@@ -90,6 +98,83 @@ class _MyBidsPageState extends State<MyBidsPage> {
     }
   }
 
+  // NEW: Collector confirms the scheduled time
+  Future<void> _confirmSchedule(String listingId, String timeSlotDocId) async {
+    try {
+      final batch = FirebaseFirestore.instance.batch();
+      final listingRef = FirebaseFirestore.instance
+          .collection('listings')
+          .doc(listingId);
+
+      batch.update(listingRef, {
+        'status': 'Scheduled',
+        'confirmedAt': FieldValue.serverTimestamp(),
+      });
+
+      final slotRef = FirebaseFirestore.instance
+          .collection('timeSlots')
+          .doc(timeSlotDocId);
+      batch.update(slotRef, {'status': 'confirmed'});
+
+      await batch.commit();
+
+      if (mounted) {
+        TopSnackBar.show(
+          context,
+          message: 'Schedule confirmed!',
+          backgroundColor: Colors.green,
+        );
+        _fetchMyBids();
+      }
+    } catch (e) {
+      if (mounted)
+        TopSnackBar.show(
+          context,
+          message: 'Error confirming: $e',
+          backgroundColor: Colors.red,
+        );
+    }
+  }
+
+  // NEW: Collector declines the scheduled time
+  Future<void> _declineSchedule(String listingId, String timeSlotDocId) async {
+    try {
+      final batch = FirebaseFirestore.instance.batch();
+      final listingRef = FirebaseFirestore.instance
+          .collection('listings')
+          .doc(listingId);
+
+      batch.update(listingRef, {
+        'status': 'Declined',
+        'declinedAt': FieldValue.serverTimestamp(),
+      });
+
+      final slotRef = FirebaseFirestore.instance
+          .collection('timeSlots')
+          .doc(timeSlotDocId);
+      batch.update(slotRef, {'isBooked': false, 'status': 'available'});
+
+      await batch.commit();
+
+      if (mounted) {
+        TopSnackBar.show(
+          context,
+          message: 'Schedule declined.',
+          backgroundColor: Colors.orange,
+        );
+        _fetchMyBids();
+      }
+    } catch (e) {
+      if (mounted)
+        TopSnackBar.show(
+          context,
+          message: 'Error declining: $e',
+          backgroundColor: Colors.red,
+        );
+    }
+  }
+
+  // EXISTING: Collector confirms physical pickup is done
   Future<void> _confirmPickup(String listingId) async {
     final confirm = await showDialog<bool>(
       context: context,
@@ -136,7 +221,7 @@ class _MyBidsPageState extends State<MyBidsPage> {
           if (mounted) {
             TopSnackBar.show(
               context,
-              message: 'Pickup confirmed! Waiting for household confirmation.',
+              message: 'Pickup confirmed! Waiting for household.',
               backgroundColor: Colors.orange,
             );
             _fetchMyBids();
@@ -146,7 +231,7 @@ class _MyBidsPageState extends State<MyBidsPage> {
         if (mounted)
           TopSnackBar.show(
             context,
-            message: 'Error confirming pickup: $e',
+            message: 'Error: $e',
             backgroundColor: Colors.red,
           );
       }
@@ -157,6 +242,8 @@ class _MyBidsPageState extends State<MyBidsPage> {
     switch (status.toLowerCase()) {
       case 'pending':
         return Colors.orange;
+      case 'scheduled':
+        return Colors.blue;
       case 'accepted':
         return Colors.green;
       case 'booked':
@@ -165,6 +252,8 @@ class _MyBidsPageState extends State<MyBidsPage> {
         return Colors.purple;
       case 'finished':
         return Colors.grey;
+      case 'declined':
+        return Colors.red;
       case 'rejected':
         return Colors.red;
       default:
@@ -199,6 +288,13 @@ class _MyBidsPageState extends State<MyBidsPage> {
                           'MMM dd, yyyy',
                         ).format((item['bidAt'] as Timestamp).toDate())
                       : 'Unknown Date';
+
+                  // Extract scheduling info
+                  final scheduledDate = item['scheduledDate'] ?? '';
+                  final timeSlot = item['timeSlot'] ?? '';
+                  final timeSlotDocId =
+                      '${item['winnerUid']}_${scheduledDate}_${timeSlot.split('-')[0]}';
+
                   return Card(
                     elevation: 2,
                     shape: RoundedRectangleBorder(
@@ -251,6 +347,41 @@ class _MyBidsPageState extends State<MyBidsPage> {
                             ),
                           ),
                           const SizedBox(height: 16),
+
+                          // SCHEDULING INFO DISPLAY
+                          if (listingStatus == 'Pending' ||
+                              listingStatus == 'Scheduled') ...[
+                            Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: Colors.blue.shade50,
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(color: Colors.blue.shade200),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text(
+                                    'Scheduled Pickup',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.grey,
+                                    ),
+                                  ),
+                                  Text(
+                                    '$scheduledDate at $timeSlot',
+                                    style: const TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.blue,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                          ],
+
                           Container(
                             padding: const EdgeInsets.all(12),
                             decoration: BoxDecoration(
@@ -305,11 +436,71 @@ class _MyBidsPageState extends State<MyBidsPage> {
                             ),
                           ),
                           const SizedBox(height: 12),
-                          if ((listingStatus == 'Booked' ||
+
+                          // BUTTONS BASED ON STATUS
+                          if (listingStatus == 'Pending') ...[
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: ElevatedButton.icon(
+                                    onPressed: () => _confirmSchedule(
+                                      item['id'],
+                                      timeSlotDocId,
+                                    ),
+                                    icon: const Icon(
+                                      Icons.check,
+                                      color: Colors.white,
+                                    ),
+                                    label: const Text(
+                                      'CONFIRM TIME',
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: Colors.green,
+                                      padding: const EdgeInsets.symmetric(
+                                        vertical: 12,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: OutlinedButton.icon(
+                                    onPressed: () => _declineSchedule(
+                                      item['id'],
+                                      timeSlotDocId,
+                                    ),
+                                    icon: const Icon(
+                                      Icons.close,
+                                      color: Colors.red,
+                                    ),
+                                    label: const Text(
+                                      'DECLINE',
+                                      style: TextStyle(
+                                        color: Colors.red,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                    style: OutlinedButton.styleFrom(
+                                      padding: const EdgeInsets.symmetric(
+                                        vertical: 12,
+                                      ),
+                                      side: const BorderSide(color: Colors.red),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ] else if ((listingStatus == 'Booked' ||
+                                  listingStatus == 'Scheduled' ||
                                   listingStatus == 'Pending Confirmation') &&
                               item['myBidStatus'] == 'Accepted' &&
                               item['location'] != null) ...[
-                            if (listingStatus == 'Booked')
+                            if (listingStatus == 'Booked' ||
+                                listingStatus == 'Scheduled')
                               SizedBox(
                                 width: double.infinity,
                                 child: ElevatedButton.icon(
@@ -318,7 +509,7 @@ class _MyBidsPageState extends State<MyBidsPage> {
                                     Navigator.push(
                                       context,
                                       MaterialPageRoute(
-                                        builder: (_) => NavigateToPickupPage(
+                                        builder: (_) => InAppRoutePage(
                                           householdName: getSafeDisplay(
                                             item['householdName'],
                                             'Household',
@@ -326,10 +517,10 @@ class _MyBidsPageState extends State<MyBidsPage> {
                                           address:
                                               item['address'] ??
                                               'No address provided',
-                                          destinationLat: double.parse(
+                                          destLat: double.parse(
                                             loc['latitude'].toString(),
                                           ),
-                                          destinationLng: double.parse(
+                                          destLng: double.parse(
                                             loc['longitude'].toString(),
                                           ),
                                         ),
@@ -351,9 +542,6 @@ class _MyBidsPageState extends State<MyBidsPage> {
                                     backgroundColor: Colors.green,
                                     padding: const EdgeInsets.symmetric(
                                       vertical: 12,
-                                    ),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(8),
                                     ),
                                   ),
                                 ),
@@ -384,14 +572,12 @@ class _MyBidsPageState extends State<MyBidsPage> {
                                   padding: const EdgeInsets.symmetric(
                                     vertical: 12,
                                   ),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
                                 ),
                               ),
                             ),
                           ],
-                          if (item['myBidStatus'] == 'Rejected')
+                          if (item['myBidStatus'] == 'Rejected' ||
+                              listingStatus == 'Declined')
                             Container(
                               width: double.infinity,
                               padding: const EdgeInsets.symmetric(vertical: 8),
